@@ -50,60 +50,6 @@ ACK = 'COMPLETED\n\n';
 %                                      ----
 %
 %
-%       The plant P(s) has parametric a uncertainty model:
-%	                                 KT                    
-%	   P(s)  =  ------------------------------------------- 
-%	            (J.La)s^2 + (J.Ra + b.La)s + (b.Ra + KT.Ke)     
-%
-%   Where
-%       J  in [ J_min,  J_max], b  in [ b_min,  b_max]
-%       La in [La_min, La_max], Ra in [Ra_min, Ra_max]
-%       KT in [KT_min, KT_max],         Ke = KT
-%
-%
-%	The performance specifications are: design a controller
-%       G(s) such that it achieves
-%
-%  1) Type 1: Stability specification
-%       ==> Corresponds to sisobnds( 1, ... )
-%
-%                   |  P(jw)G(jw)  |
-%       |T_1(jw)| = |--------------| <= del_1(w) == W_s == 1.46
-%                   |1 + P(jw)G(jw)|
-%
-%       w in [1, 10000] rad/s
-%
-%  2) Type 3: Sensitivity OR Disturbance at plant output specification 
-%       ==> Corresponds to sisobnds( 2, ... )
-%
-%                   |       1      |                  (s/a_d)
-%       |T_3(jw)| = |--------------| <= del_3(w) == -----------
-%                   |1 + P(jw)G(jw)|                (s/a_d) + 1
-%
-%       w in [1, 1000] rad/s ; a_d = 1,000
-%
-%  3) Type 6: Reference tracking specification
-%       ==> Corresponds to sisobnds( 7, ... )
-%
-%                                 |        P(jw)G(jw)  |
-%       del_6_lo(w) < |T_3(jw)| = |F(jw) --------------| <= del_6_hi(w)
-%                                 |      1 + P(jw)G(jw)|
-%
-%       w in [1, 5000] rad/s
-%
-%   Where
-%
-%                     |        1        |
-%       del_6_lo(w) = |-----------------| ; a_L = 1000
-%                     | ((s/a_L) + 1)^2 |
-%
-%                     |       ((s/a_U) + 1)       |
-%       del_6_hi(w) = |---------------------------| ; a_U = 1000
-%                     | (s/w_n)^2 + (2zs/w_n) + 1 |
-%
-%       z = 0.8 , w_n = 1.25a_u/z
-%
-%
 
 %% Generate SS model using analytical approach
 
@@ -194,7 +140,7 @@ for var1 = 1:grid_m                                 % Loop over m
                     'InputName'    ,   inputNames   , ...
                     'OutputName'   ,   outputNames );
         TF_g = tf( sys_g );
-        P(:, :, NDX) = TF_g(1);         % Transfer Function
+        P(:, :, NDX) = TF_g;            % Transfer Function
         NDX = NDX + 1;                  % Incerement counter
     end
 end
@@ -217,7 +163,7 @@ fprintf( '\tComputing nominal plant...' );
 %   Any one of the models above can be used as the nominal plant.
 %   We just happened to chose this one.
 %
-P_0(1, 1, 1) = TF(1);          % Nominal Transfer Function
+P_0(1, 1, 1) = TF;              % Nominal Transfer Function
 
 % --- Append to the end of the gridded plants
 P( 1, 1, end+1 ) = P_0;
@@ -229,7 +175,7 @@ nompt = length( P );
 fprintf( ACK );
 
 % --- Plot bode diagram
-w = logspace( -4, 3 );
+w = logspace( -3, 3 );
 figure( CNTR ); CNTR = CNTR + 1;
 bode( P_0, w ); grid on;
 [p0, theta0] = bode( P_0, w );
@@ -462,24 +408,16 @@ fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
 G_file = 'simpleInvertedPendulum.shp';
-if( isfile(G_file) )
+if( ~isfile(G_file) )
     G = getqft( G_file );
 else
-%     syms s;
-%     num = sym2poly( 2*(s/0.05   + 1)*(s/0.07 + 1) );    % Get coefficients
-%     den = sym2poly( s^1*(s/1000 + 1) );                 % ...
-%     clear s;
-    syms s;
-    num = sym2poly( 0.05*(s/0.01 + 1)*(s/0.1  + 1)*(s/0.7 + 1)*(s/100.3 + 1) );    % Get coefficients
-    den = sym2poly(  s^2*(s/100  + 1)*(s/2442 + 1 ) );                  % ...
-    clear s;
-    
-    % Construct controller TF
-    G = tf( num, den );
+    Zeros   = [ -10, -2.252 + 1i*1.378, -2.252 - 1i*1.378];     % Zeros
+    Poles   = [ -5.01, -5.00];                                  % Poles
+    Gain    = 65;                                               % Gain
 
-%     nc0 = [4.4971e+2,1.0312e+4,4.3164e+4,5.4188e+3,1.3846e+3];
-%     dc0 = [1,8.6257e+1,2.9683e+3,4.8682e+2,1.0848e+2,4.5962];
-%     G = tf(nc0,dc0);
+    % Construct controller TF
+    G = zpk( Zeros, Poles, Gain );
+
 end
 
 G_ss = ss(G);       % Transform TF to SS to use in simulink model
@@ -534,3 +472,18 @@ drawnow
 chksiso( 7, wl, del_6, P, [], G, [], F );
 % ylim( [-0.1 1.3] );
 %}
+
+%% Check for system stability
+
+% Lead-lag compensator
+k       = 1;                % 0 < k < g/(4*L)
+pole    = 5;                % Pole of Lead-Lag compensator, p > -sqrt( g/L -4*k )
+zero    = 10;     % Zero of Lead-Lag compensator
+G_0     = tf( k.*[1 zero], [1 pole] );
+
+% Open-loop TF
+% L0 = P_0*G_0;
+L0 = P_0*G_theta; 
+
+% Closed-loop TF
+T_CL = L0/(1+L0);

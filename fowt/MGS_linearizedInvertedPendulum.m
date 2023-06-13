@@ -249,8 +249,8 @@ end
 
 % --- Compare to pre-known form from MGS book
 syms s;
-P_11 = vpa( (-h*s^2+g) / (s^2*(-M_0*h*s^2+(M_0+m_0)*g)) );
-P_21 = vpa( 1 / (-M_0*h*s^2+(M_0+m_0)*g) );
+P_11 = vpa( (-h*s^2+g) / (s^2*(-M_0*h*s^2+(M_0+m_0)*g)) );  % Cart/Input
+P_21 = vpa( 1 / (-M_0*h*s^2+(M_0+m_0)*g) );                 % Pole/Input
 clear s;
 
 % [INFO] ...
@@ -525,24 +525,27 @@ fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
 G_file = 'MGS_linearizedInvertedPendulum.shp';
-if( isfile(G_file) )
+if( ~isfile(G_file) )
     G = getqft( G_file );
 else
+    % From PID TUNER
+    PID_P   = -433.469;
+    PID_I   = -976.195;
+    PID_D   = - 47.263;
+    PID_N   =  262.366;
+
+    % Convert to proper form
+    Kp  = PID_P;
+    Ti  = Kp/PID_I;
+    Td  = Kp/PID_D;
+    N   = PID_N;
     syms s;
-    num = sym2poly( 200*(s/0.1  + 1)*(s/0.07 + 1) );    % Get coefficients
-    den = sym2poly( s^2*(s/1000 + 1) );                 % ...
+    num = Kp .* sym2poly( Ti*Td*(1+1/N)*s^2 + (Ti+Td/N)*s + 1 );    % Get coefficients
+    den = Ti .* sym2poly( s*( (Td/N)*s + 1 ) );                     % ...
     clear s;
-    % syms s;
-    % num = sym2poly( 500*(s + 1)*(s/0.08 + 1)*(s/1.08 + 1)   );  % Get coefficients
-    % den = sym2poly( s*(s/100 + 1)*(s/0.5 + 1)*(s/0.51 + 1)  );  % ...
-    % clear s;
     
     % Construct controller TF
     G = tf( num, den );
-
-%     nc0 = [4.4971e+2,1.0312e+4,4.3164e+4,5.4188e+3,1.3846e+3];
-%     dc0 = [1,8.6257e+1,2.9683e+3,4.8682e+2,1.0848e+2,4.5962];
-%     G = tf(nc0,dc0);
 end
 
 % Define a frequency array for loop shaping
@@ -595,3 +598,18 @@ drawnow
 chksiso( 7, wl, del_6, P, [], G, [], F );
 % ylim( [-0.1 1.3] );
 %}
+
+%% Check for system stability
+
+% Lead-lag compensator
+k       = 1;                % 0 < k < g/(4*L)
+pole    = 5;                % Pole of Lead-Lag compensator, p > -sqrt( g/L -4*k )
+zero    = 10;     % Zero of Lead-Lag compensator
+G_0     = tf( k.*[1 zero], [1 pole] );
+
+% Open-loop TF
+% L0 = P_0*G_0;
+L0 = P_0*G_theta; 
+
+% Closed-loop TF
+T_CL = L0/(1+L0);
