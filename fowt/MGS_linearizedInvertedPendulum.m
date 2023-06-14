@@ -549,7 +549,7 @@ else
 end
 
 % Define a frequency array for loop shaping
-wl = linspace( 0.01, 1000 );
+wl = linspace( 0.01, 500 );
 L0 = P( 1, 1, nompt );
 L0.ioDelay = 0; % no delay
 lpshape( wl, ubdb, L0, G );
@@ -601,15 +601,21 @@ chksiso( 7, wl, del_6, P, [], G, [], F );
 
 %% Check for system stability
 
-% Lead-lag compensator
-k       = 1;                % 0 < k < g/(4*L)
-pole    = 5;                % Pole of Lead-Lag compensator, p > -sqrt( g/L -4*k )
-zero    = 10;     % Zero of Lead-Lag compensator
-G_0     = tf( k.*[1 zero], [1 pole] );
+% --- NOTE:
+%   * Adding a zero corresponds to a +ve phase gain of +45deg / decade
+%   * Adding a pole corresponds to a -ve phase drop of -45deg / decade
+%
+%   * Adding a  differentiator  shifts initial phase by +90deg
+%   * Adding an integrator      shifts initial phase by -90deg
+%
+%   * For complex roots, phase gain/drop is +/-90deg
 
 % Open-loop TF
-% L0 = P_0*G_0;
-L0 = P_0*G_theta; 
+L0 = P_0*G; 
 
 % Closed-loop TF
 T_CL = L0/(1+L0);
+
+% Draw bode plot for further analysis
+figure();    bode(  L0  ); grid on;
+figure(); impulse( T_CL ); grid on;
