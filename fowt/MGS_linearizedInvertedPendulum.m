@@ -28,6 +28,11 @@ PRNT = true;                                %#ok<NASGU>
 pathParts = strsplit( pwd, filesep );
 % Go up one level and generate new path
 src = fullfile( pathParts{1:end-1} );
+
+% If on a UNIX machine (i.e. macOS, Ubuntu, etc...), fix path since
+% strsplit() removes the leading '/' from the path.
+src = [ filesep src ];
+
 % Add QFT2 to path
 addpath( genpath(src) );
 
