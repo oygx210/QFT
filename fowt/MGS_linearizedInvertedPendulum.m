@@ -149,7 +149,7 @@ TF = tf( sys );
 
 M_0 = 2.0   ;                   % Mass of cart                  [  kg  ]
 m_0 = 0.075 ;                   % Mass of rod                   [  kg  ]
-g   = 9.81  ;                   % Gravitational acceleration    [m.s^-2]
+g   = 9.8   ;                   % Gravitational acceleration    [m.s^-2]
 h   = 0.5   ;                   % Rod length                    [  m   ]
 
 % ------------------------------
@@ -384,26 +384,6 @@ num     = [ 0.025   , 0.2   , 0.018 ];
 den     = [ 0.025   , 10    , 1     ];
 del_3   = tf( num, den );
 
-
-% --- Type 6
-% Frequencies of interest
-omega_6 = [ 0.01 0.05 0.1 0.5 1 ];
-
-% Restriction
-% Upper bound
-a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.05;
-num = [ 21/2 21/20 ];
-den = [ (1/wn)*(1/wn) (2*zeta/wn) 1 ];
-del_6_hi = tf( num, den );
-% Lower bound
-a_L = 0.25; eps_L = 0.0;
-num = 1-eps_L;
-den = [ 16 8 1 ];
-del_6_lo = tf( num, den );
-% Tracking weight
-del_6 = [ del_6_hi  ;
-          del_6_lo ];
-
 % [INFO] ...
 fprintf( ACK );
 
@@ -472,30 +452,6 @@ make_nice_plot();
 % [INFO] ...
 fprintf( ACK );
 
-% --------------------------------------------------
-% ---- Type 6: Reference tracking specification ----
-% --------------------------------------------------
-spec = 7;
-
-% [INFO] ...
-fprintf( '\tComputing bounds: ' );
-fprintf( 'bdb%i = sisobnds( %i, ... )\n', spec, spec );
-fprintf( '\t\t > ' );
-
-% --- Compute bounds
-bdb7 = sisobnds( spec, omega_6, del_6, P );
-
-% [INFO] ...
-fprintf( 'Plotting bounds...' );
-
-% --- Plot bounds
-plotbnds(bdb7);
-title('Robust Tracking Bounds');
-make_nice_plot();
-
-% [INFO] ...
-fprintf( ACK );
-
 
 %% Step 8: Intersection of QFT Bounds and Compatibility
 
@@ -504,9 +460,7 @@ fprintf( 'Step 8:' );
 fprintf( '\tGrouping bounds...' );
 
 % --- Grouping bounds
-% bdb = grpbnds( bdb1 );
 bdb = grpbnds( bdb1, bdb2 );
-% bdb = grpbnds( bdb1, bdb2, bdb7 );
 plotbnds(bdb); 
 title('All Bounds');
 
@@ -529,8 +483,8 @@ fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
-G_file = 'MGS_linearizedInvertedPendulum.shp';
-if( ~isfile(G_file) )
+G_file = 'MGS_linearizedInvertedPendulum_V2.shp';
+if( isfile(G_file) )
     G = getqft( G_file );
 else
     % From PID TUNER
@@ -554,7 +508,7 @@ else
 end
 
 % Define a frequency array for loop shaping
-wl = linspace( 0.01, 500 );
+wl = linspace( 0.01, 500, 2048 );
 L0 = P( 1, 1, nompt );
 L0.ioDelay = 0; % no delay
 lpshape( wl, ubdb, L0, G );
@@ -566,43 +520,35 @@ fprintf( ACK );
 
 %% Step 10: Synthesize Prefitler F(s)
 
-% [INFO] ...
-fprintf( 'Step 10:' );
-fprintf( '\tSynthesize F(s)...' );
-
-syms s;
-num = 1;
-den = sym2poly( s/0.1 + 1 );
-clear s;
-
-F = tf( num, den );
-
-pfshape( 7, wl, del_6, P, [], G, [], F );
-
-% [INFO] ...
-fprintf( ACK );
+% % [INFO] ...
+% fprintf( 'Step 10:' );
+% fprintf( '\tSynthesize F(s)...' );
+% 
+% syms s;
+% num = 1;
+% den = sym2poly( s/0.1 + 1 );
+% clear s;
+% 
+% F = tf( num, den );
+% 
+% pfshape( 7, wl, del_6, P, [], G, [], F );
+% 
+% % [INFO] ...
+% fprintf( ACK );
 
 %% Step 11-13: ANALYSIS
 
-disp(' ')
-disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
-chksiso( 1, wl, del_1, P, [], G );
-% ylim( [0 3.5] );
+% disp(' ')
+% disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
+% chksiso( 1, wl, del_1, P, [], G );
+% % ylim( [0 3.5] );
+% 
+% disp(' ')
+% disp('chksiso(2,wl,del_3,P,R,G); %Sensitivity reduction spec')
+% ind = find(wl <= 50);
+% chksiso( 2, wl(ind), del_3, P, [], G );
+% ylim( [-90 10] );
 
-disp(' ')
-disp('chksiso(2,wl,del_3,P,R,G); %Sensitivity reduction spec')
-ind = find(wl <= 50);
-chksiso( 2, wl(ind), del_3, P, [], G );
-ylim( [-90 10] );
-
-%{
-disp(' ')
-disp('chksiso(7,wl,W3,P,R,G); %input disturbance rejection spec')
-drawnow
-% chksiso(7,wl(ind),W7,P,[],G);
-chksiso( 7, wl, del_6, P, [], G, [], F );
-% ylim( [-0.1 1.3] );
-%}
 
 %% Check for system stability
 
@@ -616,11 +562,31 @@ chksiso( 7, wl, del_6, P, [], G, [], F );
 %   * For complex roots, phase gain/drop is +/-90deg
 
 % Open-loop TF
-L0 = P_0*G; 
+T_OL = P_0*G; 
 
 % Closed-loop TF
-T_CL = L0/(1+L0);
+T_CL = T_OL/(1+T_OL);
 
 % Draw bode plot for further analysis
-figure();    bode(  L0  ); grid on;
+figure();    bode( T_OL ); grid on;
 figure(); impulse( T_CL ); grid on;
+
+%% Nyqsuit plot testing of cases
+
+% L1
+syms s;
+num = 140.* sym2poly( (-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
+den = sym2poly( s^5*(-5*s+1) );
+L1 = tf( num, den );
+figure(); nyquist( L1 );
+figure(); nichols( L1 );
+clear s;
+
+% L8
+syms s;
+num = (0.0071) .* sym2poly( (-5*s+1) );
+den = sym2poly( s^3*(-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
+L8 = tf( num, den );
+figure(); nyquist( L8 );
+figure(); nichols( L8 );
+clear s;
