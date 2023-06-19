@@ -52,7 +52,7 @@ figure(); nichols( L1 );
 
 [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L1 )
 
-fprintf( "DONE!" );
+fprintf( "DONE!\n" );
 
 %% Testing L2
 
@@ -70,7 +70,7 @@ figure(); nichols( L2 );
 
 [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L2 )
 
-fprintf( "DONE!" );
+fprintf( "DONE!\n" );
 
 %% Testing L3
 
@@ -88,7 +88,7 @@ figure(); nichols( L3 );
 
 [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L3 )
 
-fprintf( "DONE!" );
+fprintf( "DONE!\n" );
 
 %% Testing L8
 
@@ -106,4 +106,4 @@ figure(); nichols( L8 );
 
 [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L8 )
 
-fprintf( "DONE!" );
+fprintf( "DONE!\n" );

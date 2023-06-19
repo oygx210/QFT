@@ -106,7 +106,8 @@ end
 LN = tf(LNnum,LNden);
 % [magLN0,phaseLN0] = bode(LN,0);
 % L
-[~, phaseL0] = bode(L,0); % phase at w=0
+% [~, phaseL0] = bode(L,0); % phase at w=0
+[~, phaseL0] = bode( L, 1e-16 ); % phase at w=0
 phaseL0 = round(phaseL0*100)/100; % Protection numerical accuracy
 [~, pha2, ww2] = nichols(L);
 ww1 = logspace(log10(ww2(1)),log10(ww2(end)),5000);
@@ -270,51 +271,51 @@ end
 % 9. Nd. Fig.3.7(d)
 % -----------------
 Nd = 0; k = 0; sigm = 0; alpha = 0; gamma = 0; % Initialization
-if num_p_0>0
+if num_p_0 > 0
     if isfinite(dc_gain) % dc_gain is finite
         Nd = 0; % Fig.3.7(d)
     else % dc_gain is infinite
         % -- k --
-        if phaseL1>-180 & phaseL1<90 % Case [a]
-            k = -1; % Eq.(3.8)
-        elseif phaseL1>90 & phaseL1<180
-            if leftRightAt0==1 % to the left. Case [c]
-                k = 0; % Eq.(3.10)
-            elseif leftRightAt0==-1 % to the right. Case [b]
-                k = -1; % Eq.(3.9)
+        if( phaseL1 > -180 && phaseL1 < 90 )        % Case [a]
+            k = -1;                                 %   Eq.(3.8)
+        elseif( phaseL1 > 90 && phaseL1 < 180 )
+            if( leftRightAt0 == 1 )                 % to the left. Case [c]
+                k = 0;                              %   Eq.(3.10)
+            elseif( leftRightAt0 == -1 )            % to the right. Case [b]
+                k = -1;                             %   Eq.(3.9)
             end
-        elseif phaseL1<=-180 % to the left and right. Case [d]
-            k = -ceil((phaseL1+180)/360); % Eq.(3.11)
-        elseif phaseL1>=180 % to the left and right. Case [e]
-            k = -ceil((phaseL1-180)/360); % Eq.(3.12)
+        elseif( phaseL1 <= -180 )                   % to the left and right. Case [d]
+            k = -ceil((phaseL1+180)/360);           %   Eq.(3.11)
+        elseif( phaseL1 >= 180 )                    % to the left and right. Case [e]
+            k = -ceil((phaseL1-180)/360);           %   Eq.(3.12)
         end
         % -- sigm --
         dcgainLN = dcgain(LN);
 
-        if dcgainLN>=0 % Case [a]
-            sigm = 0; % Eq.(3.13)
-        else % Case [b]
-            sigm = 1; % Eq.(3.14)
+        if( dcgainLN >= 0 )                         % Case [a]
+            sigm = 0;                               %   Eq.(3.13)
+        else                                        % Case [b]
+            sigm = 1;                               %   Eq.(3.14)
         end
         % -- gamma --
         numZP = num_z_RHP + num_p_LHP - num_z_LHP - num_p_RHP;
         gamma = 2 * numZP/max(abs(numZP),1); % Eq.(3.20)
         % -- alpha --
-        if phaseL0<=0
-            if leftRightAt0==1 % to the left. Case [a]
+        if( phaseL0 <= 0 )
+            if( leftRightAt0 == 1 )                 % to the left. Case [a]
                 alpha = -ceil((phaseL0+90*(num_p_0))/360);
-                % Eq.(3.15)
-            elseif leftRightAt0==-1 % to the right. Case [b]
+                                                    %   Eq.(3.15)
+            elseif( leftRightAt0 == -1 )            % to the right. Case [b]
                 alpha = -ceil((phaseL0+90*(num_p_0-2))/360);
-                % Eq.(3.16)
+                                                    %   Eq.(3.16)
             end
-        elseif phaseL0>0
-            if leftRightAt0==1 % to the left. Case [c]
+        elseif( phaseL0 > 0 )
+            if( leftRightAt0 == 1 )                 % to the left. Case [c]
                 alpha = floor((phaseL0+90*(num_p_0-2))/360);
-                % Eq.(3.17)
-            elseif leftRightAt0==-1 % to the right. Case [d]
+                                                    %   Eq.(3.17)
+            elseif( leftRightAt0 == -1 )            % to the right. Case [d]
                 alpha = -floor((phaseL0-90*(num_p_0))/360);
-                % Eq.(3.18)
+                                                    %   Eq.(3.18)
             end
         end
         if orderNum==orderDen & ...
