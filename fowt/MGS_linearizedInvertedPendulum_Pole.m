@@ -21,9 +21,12 @@ fontsize = 12;
 
 % Flags
 CNTR = 1;                                   % Figure handle counter
+PLOT = true;                                %#ok<NASGU> If true, plot figures!
+% PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
 PRNT = true;                                %#ok<NASGU>
 % PRNT = false;                               % COMMENT OUT TO PRINT FIGURES
 
+%% Add folders/files to path
 % Get current path to working directory and split
 pathParts = strsplit( pwd, filesep );
 % Go up one level and generate new path
@@ -31,7 +34,9 @@ src = fullfile( pathParts{1:end-1} );
 
 % If on a UNIX machine (i.e. macOS, Ubuntu, etc...), fix path since
 % strsplit() removes the leading '/' from the path.
-src = [ filesep src ];
+if( isunix )
+    src = [ filesep src ];
+end
 
 % Add QFT2 to path
 addpath( genpath(src) );
@@ -298,18 +303,21 @@ fprintf( ACK );
 
 % --- Plot bode diagram
 w = logspace( -4, 3 );
-figure( CNTR ); CNTR = CNTR + 1;
-bode( P_0, w ); grid on;
 [p0, theta0] = bode( P_0, w );
 
-make_nice_plot();
+if( PLOT )
+    figure( CNTR ); CNTR = CNTR + 1;
+    bode( P_0, w ); grid on;
+    make_nice_plot();
+end
 
 % --- Plot root locus
-figure( CNTR ); CNTR = CNTR + 1;
-rlocus( P_0 );
-title('Root Locus of Plant (under Proportional Control)')
-
-make_nice_plot();
+if( PLOT )
+    figure( CNTR ); CNTR = CNTR + 1;
+    rlocus( P_0 );
+    title('Root Locus of Plant (under Proportional Control)')
+    make_nice_plot();
+end
 
 %% Step 3: QFT Template
 
@@ -320,21 +328,23 @@ fprintf( '\tPlotting QFT templates...' );
 % --- Working frequencies
 w =  [ 0.01 0.05 0.1 0.5 1 5 10 50 100 500 ];
 
-% --- Plot QFT templates
-plottmpl( w, P, nompt );
-
-% --- Change legend position
-hLegend = findobj(gcf, 'Type', 'Legend');   % Get legend property
-set( hLegend, 'location', 'southeast' );    % Access and change location
-
-% --- Change plot limits
-xmin = -25; xmax = 10; dx = 5;
-xlim( [xmin xmax] );
-xticks( xmin:dx:xmax )
-title( 'Plant Templates' )
-
-% --- Beautify plot
-make_nice_plot();
+if( PLOT )
+    % --- Plot QFT templates
+    plottmpl( w, P, nompt );
+    
+    % --- Change legend position
+    hLegend = findobj( gcf, 'Type', 'Legend' ); % Get legend property
+    set( hLegend, 'location', 'southeast' );    % Access and change location
+    
+    % --- Change plot limits
+    xmin = -25; xmax = 10; dx = 5;
+    xlim( [xmin xmax] );
+    xticks( xmin:dx:xmax )
+    title( 'Plant Templates' )
+    
+    % --- Beautify plot
+    make_nice_plot();
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -414,14 +424,16 @@ fprintf( '\t\t > ' );
 bdb1 = sisobnds( spec, omega_1, del_1, P, [], nompt );
 % R = 0; bdb1 = sisobnds( spec, omega_1, del_1, P, R, nompt );
 
-% [INFO] ...
-fprintf( 'Plotting bounds...' );
-
-% --- Plot bounds
-plotbnds( bdb1 );
-title( 'Robust Stability Bounds' );
-xlim( [-360 0] ); ylim( [-10 30] );
-make_nice_plot();
+if( PLOT )
+    % [INFO] ...
+    fprintf( 'Plotting bounds...' );
+    
+    % --- Plot bounds
+    plotbnds( bdb1 );
+    title( 'Robust Stability Bounds' );
+    xlim( [-360 0] ); ylim( [-10 30] );
+    make_nice_plot();
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -441,13 +453,15 @@ fprintf( '\t\t > ' );
 % --- Compute bounds
 bdb2 = sisobnds( spec, omega_3, del_3, P, [], nompt );
 
-% [INFO] ...
-fprintf( 'Plotting bounds...' );
-
-% --- Plot bounds
-plotbnds(bdb2);
-title('Sensitivity Reduction Bounds');
-make_nice_plot();
+if( PLOT )
+    % [INFO] ...
+    fprintf( 'Plotting bounds...' );
+    
+    % --- Plot bounds
+    plotbnds(bdb2);
+    title('Sensitivity Reduction Bounds');
+    make_nice_plot();
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -483,7 +497,7 @@ fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
-G_file = 'MGS_linearizedInvertedPendulum_V2.shp';
+G_file = './controllerDesigns/MGS_linearizedInvertedPendulum.shp';
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -520,34 +534,34 @@ fprintf( ACK );
 
 %% Step 10: Synthesize Prefitler F(s)
 
-% % [INFO] ...
-% fprintf( 'Step 10:' );
-% fprintf( '\tSynthesize F(s)...' );
-% 
-% syms s;
-% num = 1;
-% den = sym2poly( s/0.1 + 1 );
-% clear s;
-% 
-% F = tf( num, den );
-% 
-% pfshape( 7, wl, del_6, P, [], G, [], F );
-% 
-% % [INFO] ...
-% fprintf( ACK );
+% [INFO] ...
+fprintf( 'Step 10:' );
+fprintf( '\tSynthesize F(s)...' );
+
+syms s;
+num = 1;
+den = sym2poly( s/10 + 1 );
+clear s;
+
+F = tf( num, den );
+
+pfshape( 1, wl, del_1, P, [], G, [], F );
+
+% [INFO] ...
+fprintf( ACK );
 
 %% Step 11-13: ANALYSIS
 
-% disp(' ')
-% disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
-% chksiso( 1, wl, del_1, P, [], G );
-% % ylim( [0 3.5] );
-% 
-% disp(' ')
-% disp('chksiso(2,wl,del_3,P,R,G); %Sensitivity reduction spec')
-% ind = find(wl <= 50);
-% chksiso( 2, wl(ind), del_3, P, [], G );
-% ylim( [-90 10] );
+disp(' ')
+disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
+chksiso( 1, wl, del_1, P, [], G );
+% ylim( [0 3.5] );
+
+disp(' ')
+disp('chksiso(2,wl,del_3,P,R,G); %Sensitivity reduction spec')
+ind = find(wl <= 50);
+chksiso( 2, wl(ind), del_3, P, [], G );
+ylim( [-90 10] );
 
 
 %% Check for system stability
@@ -571,22 +585,38 @@ T_CL = T_OL/(1+T_OL);
 figure();    bode( T_OL ); grid on;
 figure(); impulse( T_CL ); grid on;
 
-%% Nyqsuit plot testing of cases
+%% Determine Nyquist stability for controller design guidelines
 
-% L1
-syms s;
-num = 140.* sym2poly( (-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
-den = sym2poly( s^5*(-5*s+1) );
-L1 = tf( num, den );
-figure(); nyquist( L1 );
-figure(); nichols( L1 );
-clear s;
+[zc, N, num_p_RHP, Na, Nb, Nc, ...
+ Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( P_0 )
 
-% L8
-syms s;
-num = (0.0071) .* sym2poly( (-5*s+1) );
-den = sym2poly( s^3*(-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
-L8 = tf( num, den );
-figure(); nyquist( L8 );
-figure(); nichols( L8 );
-clear s;
+figure(); nichols( P_0 ); grid on;
+figure(); nyquist( P_0 );
+
+%% Check controller against Nyquist stability guidelines
+%{
+G_guideline = zpk( [-3.25], [-1000], -5.3395e+05 );
+lpshape( wl, ubdb, L0, G_guideline );
+
+% Open-loop TF
+T_OL_guideline = P_0*G_guideline;
+% Closed-loop TF
+T_CL_guideline = T_OL_guideline/(1+T_OL_guideline);
+
+[zc, N, num_p_RHP, Na, Nb, Nc, ...
+ Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(G_guideline) )
+
+if( PLOT )
+    % Plot controller on Nichols and Nyquist charts
+    figure(); nichols( G_guideline ); grid on;
+    figure(); nyquist( G_guideline );
+
+    % Draw bode plot for further analysis
+    figure();    bode( T_OL_guideline ); grid on;
+    figure(); impulse( T_CL_guideline ); grid on;
+end
+
+% Re-check nyquistStability()
+[zc, N, num_p_RHP, Na, Nb, Nc, ...
+ Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(T_OL_guideline) )
+%}

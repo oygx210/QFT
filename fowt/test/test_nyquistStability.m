@@ -36,28 +36,74 @@ src = [ filesep src ];
 % Add QFT2 to path
 addpath( genpath(src) );
 
-%% Nyquist plot testing of cases
+%% Testing L1
 
-% Testing L1
+example = 1;
+fprintf( "Running example %3.0i...", example );
+
 syms s;
 num = 140.* sym2poly( (-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
 den = sym2poly( s^5*(-5*s+1) );
 clear s;
 
 L1 = tf( num, den );
-% figure(); nyquist( L1 );
-% figure(); nichols( L1 );
+figure(); nyquist( L1 );
+figure(); nichols( L1 );
 
-[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability(L1)
+[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L1 )
 
-% Testing L8
+fprintf( "DONE!" );
+
+%% Testing L2
+
+example = 2;
+fprintf( "Running example %3.0i...", example );
+
+syms s;
+num = (1000) .* sym2poly( (-0.5*s+1)*(-0.5714*s+1) );
+den = sym2poly( s*(5*s+1)*(0.5*s+1)*(0.33*s+1)*(0.25*s+1) );
+clear s;
+
+L2 = tf( num, den );
+figure(); nyquist( L2 );
+figure(); nichols( L2 );
+
+[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L2 )
+
+fprintf( "DONE!" );
+
+%% Testing L3
+
+example = 3;
+fprintf( "Running example %3.0i...", example );
+
+syms s;
+num = (-2) .* sym2poly( (-0.5*s+1)*(0.33*s+1) );
+den = sym2poly( (s+1)*(-5*s+1) );
+clear s;
+
+L3 = tf( num, den );
+figure(); nyquist( L3 );
+figure(); nichols( L3 );
+
+[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L3 )
+
+fprintf( "DONE!" );
+
+%% Testing L8
+
+example = 8;
+fprintf( "Running example %3.0i...", example );
+
 syms s;
 num = (0.0071) .* sym2poly( (-5*s+1) );
 den = sym2poly( s^3*(-0.5*s+1)*(-0.5714*s+1)*(-0.6*s+1)*(-3.5*s+1) );
 clear s;
 
 L8 = tf( num, den );
-% figure(); nyquist( L8 );
-% figure(); nichols( L8 );
+figure(); nyquist( L8 );
+figure(); nichols( L8 );
 
-[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability(L8)
+[zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( L8 )
+
+fprintf( "DONE!" );
