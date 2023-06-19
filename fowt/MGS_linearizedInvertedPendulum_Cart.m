@@ -605,30 +605,72 @@ figure(); impulse( T_CL ); grid on;
 figure(); nichols( P_0 ); grid on;
 figure(); nyquist( P_0 );
 
-%% Check controller against Nyquist stability guidelines
+%% Check controller against Nyquist stability guidelines --- Part 1
 
 G_guideline = zpk( [-1], [-100], 3000 );
 lpshape( wl, ubdb, L0, G_guideline );
+% [zc, N, num_p_RHP, Na, Nb, Nc, ...
+%  Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(G_guideline) )
+nyquistStability( tf(G_guideline) )
 
+if( PLOT )
+    figure();  rlocus( P_0 ); grid on;
+    figure(); nichols( P_0 ); grid on;
+    figure(); nyquist( P_0 );
+end
+nyquistStability( tf(P_0) );
+
+%% Check controller against Nyquist stability guidelines --- Part 2
+
+clc;
 % Open-loop TF
 T_OL_guideline = P_0*G_guideline;
+[~, phi_L0] = bode( T_OL_guideline, 1e-16 );
+[~, phi_Lw] = bode( T_OL_guideline, 1e+16 );
+delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the left
+
 % Closed-loop TF
 T_CL_guideline = T_OL_guideline/(1+T_OL_guideline);
 
-[zc, N, num_p_RHP, Na, Nb, Nc, ...
- Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(G_guideline) )
-
+% nyquistStability( tf(P_0) );
+nyquistStability( tf(G_guideline) );
+ 
 if( PLOT )
-    % Plot controller on Nichols and Nyquist charts
-    figure(); nichols( G_guideline ); grid on;
-    figure(); nyquist( G_guideline );
+    % Plot root locus of plant, controller, and OL
+%     figure(); rlocus( P_0 ); grid on;
+%     figure(); rlocus( G_guideline ); grid on;
+%     figure(); rlocus( T_OL_guideline ); grid on;
 
-    % Draw bode plot for further analysis
-    figure();    bode( T_OL_guideline ); grid on;
-    figure(); impulse( T_CL_guideline ); grid on;
+%     % Plot controller on Nichols and Nyquist charts
+    figure(); nichols( T_OL_guideline ); grid on;
+%     figure(); nyquist( G_guideline );
+% 
+%     % Draw bode plot for further analysis
+%     figure();    bode( T_OL_guideline ); grid on;
+%     figure(); impulse( T_CL_guideline ); grid on;
 end
 
 % Re-check nyquistStability()
-[zc, N, num_p_RHP, Na, Nb, Nc, ...
- Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(T_OL_guideline) )
+% [zc, N, num_p_RHP, Na, Nb, Nc, ...
+%  Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(T_OL_guideline) )
+nyquistStability( tf(T_OL_guideline), true )
 
+%% MISC. TEMPORARY OPERATIONS
+
+syms s;
+kkkk = -0.6667;
+numa = kkkk .* sym2poly( -0.5*s + 1 );
+dena =         sym2poly( (-s + 1)*(-0.33*s +1 ) );
+P13  = tf( numa, dena );
+P13  = zpk( P13 )
+
+kkkk = 0.0615;
+numa = kkkk .* sym2poly( -17.75*s^2 + 26.8750*s + 1 );
+dena =         sym2poly( s*(-0.0077*s + 1) );
+G13  = tf( numa, dena );
+G13  = zpk( G13 )
+clear s;
+
+figure(); rlocus( P13 ); grid on;
+figure(); rlocus( G13 ); grid on;
+figure(); rlocus( P13*G13 ); grid on;

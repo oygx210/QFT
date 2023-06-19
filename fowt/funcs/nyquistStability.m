@@ -1,12 +1,29 @@
-function [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigm, alpha, gamma] = DEBUGED_nyquistStability(L)
+function [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigma, alpha, gamma] = nyquistStability( L, DEBUG )
 % Function to calculate closed-loop system stability
 % - Input: L(s) = P(s) C(s)
-% - Outputs: zc,N,num_p_RHP,Na,Nb,Nc,Nd,zpCancel,k,sigm,alpha,gamma
+% - Outputs: zc,N,num_p_RHP,Na,Nb,Nc,Nd,zpCancel,k,sigma,alpha,gamma
 % according to method introduced by Mario Garcia-Sanz (2016)
 % - Code free-download at:
 % http://cesc.case.edu/Stability_Nyquist_GarciaSanz.htm
 % And also included in the QFTCT, Controller design window
 % -----------------------------------------------------------------
+%do_fft( data, time, sampling_time )
+%   Conactenate the FFT generation process into a custom function
+%   INPUTS:-
+%       - data          : Data vector (row OR column) we wish to perform FFT on
+%       - time          : Data corresponding time vector (row OR column)
+%       - sampling_time : Scalar corresponding to the sampling time of the
+%                           data vector
+%
+%   RETURN:-
+%       - zc    : = N + num_p_RHP
+%       - N     : Number of encirclements
+%
+
+arguments
+    L                           tf
+    DEBUG                       {mustBeNumericOrLogical} = false
+end
 
 % 1. Initial values
 % -----------------
@@ -270,7 +287,7 @@ end
 
 % 9. Nd. Fig.3.7(d)
 % -----------------
-Nd = 0; k = 0; sigm = 0; alpha = 0; gamma = 0; % Initialization
+Nd = 0; k = 0; sigma = 0; alpha = 0; gamma = 0; % Initialization
 if num_p_0 > 0
     if isfinite(dc_gain) % dc_gain is finite
         Nd = 0; % Fig.3.7(d)
@@ -289,17 +306,18 @@ if num_p_0 > 0
         elseif( phaseL1 >= 180 )                    % to the left and right. Case [e]
             k = -ceil((phaseL1-180)/360);           %   Eq.(3.12)
         end
-        % -- sigm --
+        % -- sigma --
         dcgainLN = dcgain(LN);
 
         if( dcgainLN >= 0 )                         % Case [a]
-            sigm = 0;                               %   Eq.(3.13)
+            sigma = 0;                               %   Eq.(3.13)
         else                                        % Case [b]
-            sigm = 1;                               %   Eq.(3.14)
+            sigma = 1;                               %   Eq.(3.14)
         end
         % -- gamma --
         numZP = num_z_RHP + num_p_LHP - num_z_LHP - num_p_RHP;
         gamma = 2 * numZP/max(abs(numZP),1); % Eq.(3.20)
+        
         % -- alpha --
         if( phaseL0 <= 0 )
             if( leftRightAt0 == 1 )                 % to the left. Case [a]
@@ -318,12 +336,12 @@ if num_p_0 > 0
                                                     %   Eq.(3.18)
             end
         end
-        if orderNum==orderDen & ...
-                ( (pha(end)<180+tolPh2 & pha(end)>180-tolPh2)...
-                | (pha(end)<tolPh2 & pha(end)>-tolPh2) ) % Case [e]
+        if( (  orderNum == orderDen  ) && ...
+            ( (pha(end) < 180+tolPh2 && pha(end) >180-tolPh2) | ...
+              (pha(end) <     tolPh2 && pha(end) >   -tolPh2)) ) % Case [e]
             alpha = 0; % Eq.(3.19)
         end
-        Nd = 2*(k+1) + sigm + alpha*gamma; % Eq.(3.6)
+        Nd = 2*(k+1) + sigma + alpha*gamma; % Eq.(3.6)
     end
 end
 
@@ -339,5 +357,29 @@ zc = N + num_p_RHP;
 % - Rule 1: “zpCancel=0”. RHP zero-pole cancelations "0"=no,"1"=yes
 % - Rule 2: “zc = 0”. Being zc = N + num_p_RHP
 % ---------------------------------------------
+
+if( DEBUG )
+    disp( '======================================' );
+    disp( '=========== DEBUG __ START ===========' );
+    disp( '======================================' );
+    fprintf( "\tDelta      = %6.3f\n",  leftRightAt0        );
+    fprintf( "\tDC Gain    = %6.3f\n",  dcgainLN            );
+    fprintf( "\t∠ L(w0)    = %6.3f\n",  phaseL0             );
+    fprintf( "\t∠ L(w1)    = %6.3f\n",  phaseL1             );
+    fprintf( "\tnumZP      = %6.3f\n",  numZP               );
+    fprintf( "\tmax(numZP) = %6.3f\n",  max(abs(numZP), 1)  );
+    disp( '======================================' );
+    disp( '============ DEBUG __ END ============' );
+    disp( '======================================' );
+end
+% --- If no output is requested, print the values we computed
+if( ~nargout )
+    value       = [ zc, N, num_p_RHP, Na, Nb, Nc, Nd, ...
+                    zpCancel, k, sigma, alpha, gamma].';
+    variable    = [ "zc", "N"   , "p_RHP", "Na" , "Nb"  , ...
+                    "Nc", "Nd"  , "zpCancel"    , "k"   , ...
+                    "sigma"     , "alpha"       , "gamma" ].';
+    disp( table( variable, value ) )
+end
 
 end
