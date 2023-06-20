@@ -1,39 +1,51 @@
-function [zc, N, num_p_RHP, Na, Nb, Nc, Nd, zpCancel, k, sigma, alpha, gamma] = nyquistStability( L, DEBUG )
-% Function to calculate closed-loop system stability
-% - Input: L(s) = P(s) C(s)
-% - Outputs: zc,N,num_p_RHP,Na,Nb,Nc,Nd,zpCancel,k,sigma,alpha,gamma
-% according to method introduced by Mario Garcia-Sanz (2016)
+function [ struct_out ] = nyquistStability( T_OL, DEBUG )
+%
+% Function to calculate closed-loop system stability according to
+%   method introduced by Mario Garcia-Sanz (2016)
+% 
 % - Code free-download at:
 % http://cesc.case.edu/Stability_Nyquist_GarciaSanz.htm
 % And also included in the QFTCT, Controller design window
 % -----------------------------------------------------------------
-%do_fft( data, time, sampling_time )
-%   Conactenate the FFT generation process into a custom function
+%
 %   INPUTS:-
-%       - data          : Data vector (row OR column) we wish to perform FFT on
-%       - time          : Data corresponding time vector (row OR column)
-%       - sampling_time : Scalar corresponding to the sampling time of the
-%                           data vector
+%       - T_OL      : Open-loop transfer function, i.e. L(s) = P(s) C(s)
+%       - DEBUG     : If true, prints extra variables to help debug
 %
 %   RETURN:-
-%       - zc    : = N + num_p_RHP
-%       - N     : Number of encirclements
+%       Returned variables are stored within the struct (u)
+%       - zc        : = N + num_p_RHP
+%       - N         : Total number of encirclements, N = Na + Nb + Nc + Nd
+%       - num_p_RHP : Number of poles on the RHP in the s-plane
+%       - Na        : Number of encirclements uncer case (Na)
+%       - Nb        : Number of encirclements uncer case (Nb)
+%       - Nc        : Number of encirclements uncer case (Nc)
+%       - Nd        : Number of encirclements uncer case (Nd)
+%       - zpCancel  : RHP zero-pole cancelations. "0"=no, "1"=yes
+%       - k         : = [0, ±1, ±2, ...]depending on phase at w0 and w1
+%       - sigma     : Describes sign of gain of T_OL ( = 0 if gain >= 0, 1
+%                       otherwise)
+%       - alpha     : = [0, +1, +2, ...]depending on phase at w0, w1, and
+%                       w_inf
+%       - gamma     : = [-2, 0, +2]depending on type and number of poles
+%                       and zeros
 %
 
 arguments
-    L                           tf
-    DEBUG                       {mustBeNumericOrLogical} = false
+    T_OL                    tf
+    DEBUG                   {mustBeNumericOrLogical} = false
 end
 
+L = T_OL;                   % Set T_OL to L
 % 1. Initial values
 % -----------------
-tolPh = 1e-3; % tolerance phase
-tolPh1 = 0.002; % tolerance phase
-tolPh2 = 5; % tolerance phase
-tolM = 0.05; % tolerance magnitude
-tolA = 0.05; % tolerance for change around 0.
-wmin = 1e-16; % lowest freq.
-zpCancel = 0; % RHP zero-pole cancelations. "0"=no, "1"=yes
+tolPh = 1e-3;               % tolerance phase
+tolPh1 = 0.002;             % tolerance phase
+tolPh2 = 5;                 % tolerance phase
+tolM = 0.05;                % tolerance magnitude
+tolA = 0.05;                % tolerance for change around 0.
+wmin = 1e-16;               % lowest freq.
+zpCancel = 0;               % RHP zero-pole cancelations. "0"=no, "1"=yes
 z_LHP = []; z_RHP = []; z_0 = []; z_i = [];
 p_LHP = []; p_RHP = []; p_0 = []; p_i = [];
 
@@ -123,25 +135,24 @@ end
 LN = tf(LNnum,LNden);
 % [magLN0,phaseLN0] = bode(LN,0);
 % L
-% [~, phaseL0] = bode(L,0); % phase at w=0
 [~, phaseL0] = bode( L, 1e-16 ); % phase at w=0
 phaseL0 = round(phaseL0*100)/100; % Protection numerical accuracy
 [~, pha2, ww2] = nichols(L);
 ww1 = logspace(log10(ww2(1)),log10(ww2(end)),5000);
-[mag1,pha1] = nichols(L,ww1);
+[mag1, pha1] = nichols( L, ww1 );
 nn = length(pha1);
 mag = [];
 pha = [];
 ww = [];
 for jj=1:nn
-    mag(jj) = mag1(1,1,jj);
-    pha(jj) = pha1(1,1,jj);
-    ww(jj) = ww1(jj);
+    mag( jj )   = mag1( 1, 1, jj );
+    pha( jj )   = pha1( 1, 1, jj );
+     ww( jj )   =  ww1(    jj    );
 end
-indPh2 = find( ~isequal(phaseL0, pha2), 1, 'first' ); % the first that is "~="
-% indPh2 = find( abs(phaseL0 - pha2)>tolPh, 1, 'first' ); % the first that is "~="
-phaseL1 = pha2(indPh2); % phase at w=0+
-leftRightAt0 = sign(phaseL0-phaseL1);
+% indPh2 = find( ~isequal(phaseL0, pha2), 1, 'first' ); % the first that is "~="
+indPh2          = find( abs(phaseL0 - pha2) > tolPh, 1, 'first' ); % the first that is "~="
+phaseL1         = pha2(indPh2); % phase at w=0+
+leftRightAt0    = sign(phaseL0-phaseL1);
 
 % 5. Find crosses at -900, -540, -180, +180 etc and mag>1
 % -------------------------------------------------------
@@ -258,27 +269,27 @@ end
 % -----------------
 Nc = 0;
 
-if mag(end)>1 % mag(w=inf)>1
+if( mag(end) > 1 )                      % mag( w=inf ) > 1
     k_at_wInf = ((pha(end)/(-180))-1)/2;
-    if abs(k_at_wInf-floor(k_at_wInf))<0.001
+    if( abs(k_at_wInf-floor(k_at_wInf)) < 0.001 )
         % at -900,-540,-180,+180,etc
         pha21 = pha(end)-pha(end-1);
         ss = 1;
-        while pha21==0
+        while( pha21 == 0 )
             ss = ss+1;
-            if nMaxPha>ss
+            if( nMaxPha > ss )
                 pha21 = pha(end)-pha(end-ss);
             else
                 pha21 = 0;
                 return;
             end
         end
-        if pha21>0
-            Nc = -1; % Fig.3.7(c) to the right
-        elseif pha21<0
-            Nc = +1; % Fig.3.7(c) to the left
+        if( pha21 > 0 )
+            Nc = -1;        % Fig.3.7(c) to the right
+        elseif( pha21 < 0 )
+            Nc = +1;        % Fig.3.7(c) to the left
         else
-            Nc = 0; % Fig.3.7(c) in axis
+            Nc = 0;         % Fig.3.7(c) in axis
         end
     else
         Nc = 0; % Fig.3.7(c)
@@ -293,9 +304,9 @@ if num_p_0 > 0
         Nd = 0; % Fig.3.7(d)
     else % dc_gain is infinite
         % -- k --
-        if( phaseL1 > -180 && phaseL1 < 90 )        % Case [a]
+        if( phaseL1 > -180 & phaseL1 < 90 )         % Case [a]
             k = -1;                                 %   Eq.(3.8)
-        elseif( phaseL1 > 90 && phaseL1 < 180 )
+        elseif( phaseL1 > 90 & phaseL1 < 180 )
             if( leftRightAt0 == 1 )                 % to the left. Case [c]
                 k = 0;                              %   Eq.(3.10)
             elseif( leftRightAt0 == -1 )            % to the right. Case [b]
@@ -358,11 +369,14 @@ zc = N + num_p_RHP;
 % - Rule 2: “zc = 0”. Being zc = N + num_p_RHP
 % ---------------------------------------------
 
+
+
+% --- If DEBUG is flagged, print the following
 if( DEBUG )
     disp( '======================================' );
     disp( '=========== DEBUG __ START ===========' );
     disp( '======================================' );
-    fprintf( "\tDelta      = %6.3f\n",  leftRightAt0        );
+    fprintf( "\tDelta      = %6.3f\n",  leftRightAt0        );  % +ve if Lw goes initially to the left
     fprintf( "\tDC Gain    = %6.3f\n",  dcgainLN            );
     fprintf( "\t∠ L(w0)    = %6.3f\n",  phaseL0             );
     fprintf( "\t∠ L(w1)    = %6.3f\n",  phaseL1             );
@@ -372,14 +386,24 @@ if( DEBUG )
     disp( '============ DEBUG __ END ============' );
     disp( '======================================' );
 end
+
+% --- Aggregate output
+value       = [ zc, N, num_p_RHP, Na, Nb, Nc, Nd, ...
+                zpCancel, k, sigma, alpha, gamma].';
+variable    = [ "zc", "N"   , "p_RHP", "Na" , "Nb"  , ...
+                "Nc", "Nd"  , "zpCancel"    , "k"   , ...
+                "sigma"     , "alpha"       , "gamma" ].';
+
 % --- If no output is requested, print the values we computed
 if( ~nargout )
-    value       = [ zc, N, num_p_RHP, Na, Nb, Nc, Nd, ...
-                    zpCancel, k, sigma, alpha, gamma].';
-    variable    = [ "zc", "N"   , "p_RHP", "Na" , "Nb"  , ...
-                    "Nc", "Nd"  , "zpCancel"    , "k"   , ...
-                    "sigma"     , "alpha"       , "gamma" ].';
     disp( table( variable, value ) )
+
+% --- Otherwise, generate struct and output it
+else
+    namesoftags = cellstr(variable);
+    for i = 1:length( namesoftags )
+        struct_out.(namesoftags{i}) = value(i);
+    end
 end
 
 end
