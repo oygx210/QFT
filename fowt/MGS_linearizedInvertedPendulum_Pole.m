@@ -497,7 +497,7 @@ fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
-G_file = './controllerDesigns/MGS_linearizedInvertedPendulum.shp';
+G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Pole_V2.shp';
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -594,7 +594,7 @@ figure(); nichols( P_0 ); grid on;
 figure(); nyquist( P_0 );
 
 %% Check controller against Nyquist stability guidelines
-%{
+
 G_guideline = zpk( [-3.25], [-1000], -5.3395e+05 );
 lpshape( wl, ubdb, L0, G_guideline );
 
@@ -603,8 +603,7 @@ T_OL_guideline = P_0*G_guideline;
 % Closed-loop TF
 T_CL_guideline = T_OL_guideline/(1+T_OL_guideline);
 
-[zc, N, num_p_RHP, Na, Nb, Nc, ...
- Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(G_guideline) )
+output = nyquistStability( tf(G_guideline) )
 
 if( PLOT )
     % Plot controller on Nichols and Nyquist charts
@@ -617,6 +616,5 @@ if( PLOT )
 end
 
 % Re-check nyquistStability()
-[zc, N, num_p_RHP, Na, Nb, Nc, ...
- Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( tf(T_OL_guideline) )
-%}
+output = nyquistStability( tf(T_OL_guideline) )
+

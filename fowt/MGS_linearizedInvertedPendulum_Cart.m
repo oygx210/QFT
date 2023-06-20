@@ -223,14 +223,13 @@ fprintf( '\tComputing nominal plant...' );
 %   Any one of the models above can be used as the nominal plant.
 %   We just happened to chose this one.
 %
-P_y10(1, 1, 1) = tf( 1, [M_0 0 0] );          % Nominal Transfer Function
+P_0 = tf( 1, [M_0 0 0] ) ;              % Nominal plant TF
 
-% --- Append to the end of the gridded plants
-P_y1( 1, 1, end+1 ) = P_y10;
+% --- Append nominal plant to the end of the gridded plants
+P_y1( 1, 1, end+1 ) = P_0;
 
 % --- Select which I/O pair we want to work with
 P   = P_y1  ;                           % This corresponds to gridded x/Fx
-P_0 = P_y10 ;                           % This corresponds to nominal x/Fx
 SS_0 = ss(P_0);                         % Convert to SS for use in Simulink
 % --- Define nominal plant case
 nompt = length( P );
@@ -450,24 +449,11 @@ G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Cart_V2.shp';
 if( isfile(G_file) )
     G = getqft( G_file );
 else
-    % From PID TUNER
-    PID_P   = -433.469;
-    PID_I   = -976.195;
-    PID_D   = - 47.263;
-    PID_N   =  262.366;
-
-    % Convert to proper form
-    Kp  = PID_P;
-    Ti  = Kp/PID_I;
-    Td  = Kp/PID_D;
-    N   = PID_N;
-    syms s;
-    num = Kp .* sym2poly( Ti*Td*(1+1/N)*s^2 + (Ti+Td/N)*s + 1 );    % Get coefficients
-    den = Ti .* sym2poly( s*( (Td/N)*s + 1 ) );                     % ...
-    clear s;
-    
+    zeros   = -0.300;
+    poles   = -15.00;
+    gain    = +150.0;
     % Construct controller TF
-    G = tf( num, den );
+    G = zpk( zeros, poles, gain );
 end
 
 % Define a frequency array for loop shaping
@@ -476,10 +462,8 @@ L0 = P( 1, 1, nompt );
 L0.ioDelay = 0; % no delay
 lpshape( wl, ubdb, L0, G );
 
-
 % [INFO] ...
 fprintf( ACK );
-
 
 %% Step 10: Synthesize Prefitler F(s)
 
@@ -487,16 +471,17 @@ fprintf( ACK );
 fprintf( 'Step 10:' );
 fprintf( '\tSynthesize F(s)...' );
 
+% --- Pre-filter TF definition
 syms s;
 num = 0.017179 .* sym2poly( (s+0.9)*(s+10.2)*(s+62.58) );
 den = sym2poly( (s+100)*(s+0.4612)*(s+0.2054) );
 clear s;
 
+% --- Construct initial pre-filter TF
 F = tf( num, den );
 
-% pfshape( 7, wl, del_6, P, [], G, [], F );
-ind = find(wl <= 1);
-pfshape( 7, wl(ind), del_6, P, [], G, [], F );
+% --- Pre-filter loop-shaping
+pfshape( 7, wl, del_6, P, [], G, [], F );
 
 % [INFO] ...
 fprintf( ACK );
@@ -505,17 +490,17 @@ fprintf( ACK );
 
 disp(' ')
 disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
-chksiso( 1, wl, del_1, P, [], G );
+chksiso( 1, wl, del_1, P, [], G, [], F );
 % ylim( [0 3.5] );
 
 disp(' ')
 disp('chksiso(7,wl,del_6,P,R,G); %Reference tracking specification')
 ind = find(wl <= 1);
-chksiso( 7, wl(ind), del_6, P, [], G );
+chksiso( 7, wl(ind), del_6, P, [], G, [], F );
 % ylim( [-90 10] );
 
 
-%% Check for system stability
+%% Check system/controller against Nyquist stability guidelines
 
 % --- NOTE:
 %   * Adding a zero corresponds to a +ve phase gain of +45deg / decade
@@ -527,26 +512,28 @@ chksiso( 7, wl(ind), del_6, P, [], G );
 %   * For complex roots, phase gain/drop is +/-90deg
 
 % Open-loop TF
-T_OL = P_0*G; 
+T_OL = P_0*G;
+[~, phi_L0] = bode( T_OL, 1e-16 );
+[~, phi_Lw] = bode( T_OL, 1e+16 );
+delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the left
 
 % Closed-loop TF
 T_CL = T_OL/(1+T_OL);
 
-% Draw bode plot for further analysis
-figure();    bode( T_OL ); grid on;
-figure(); impulse( T_CL ); grid on;
+% Check if Nyquist stability criterions are met
+nyquistStability( tf(T_OL), true )
+zpk( T_OL )
 
-%% Determine Nyquist stability for controller design guidelines
+% Plot
+if( PLOT )
+    % Draw bode plot for further analysis
+    figure();    bode( T_OL ); grid on;
+    figure(); impulse( T_CL ); grid on;
+end
+
+%% Check plant against Nyquist stability guidelines
 
 output = nyquistStability( P_0 );
-
-figure(); nichols( P_0 ); grid on;
-figure(); nyquist( P_0 );
-
-%% Check controller against Nyquist stability guidelines --- Part 1
-
-G_guideline = zpk( [-0.3], [0 0 -100], 75 );
-nyquistStability( tf(G_guideline) )
 
 if( PLOT )
     figure();  rlocus( P_0 ); grid on;
@@ -554,50 +541,5 @@ if( PLOT )
     figure(); nyquist( P_0 );
 end
 
-%% Check controller against Nyquist stability guidelines --- Part 2
-
-clc;
-% Open-loop TF
-T_OL_guideline = P_0*G_guideline;
-[~, phi_L0] = bode( T_OL_guideline, 1e-16 );
-[~, phi_Lw] = bode( T_OL_guideline, 1e+16 );
-delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the left
-
-% Closed-loop TF
-T_CL_guideline = T_OL_guideline/(1+T_OL_guideline);
-
-output = nyquistStability( tf(P_0) );
- 
-if( PLOT )
-    % Draw bode plot for further analysis
-    figure();    bode( T_OL_guideline ); grid on;
-    figure(); impulse( T_CL_guideline ); grid on;
-end
-
-% Re-check nyquistStability()
-nyquistStability( tf(T_OL_guideline), true )
-zpk( T_OL_guideline )
-
 %% MISC. TEMPORARY OPERATIONS
-%{
-syms s;
-kkkk = -0.6667;
-numa = kkkk .* sym2poly( -0.5*s + 1 );
-dena =         sym2poly( (-s + 1)*(-0.33*s +1 ) );
-P13  = tf( numa, dena );
-P13  = zpk( P13 )
 
-kkkk = 0.0615;
-numa = kkkk .* sym2poly( -17.75*s^2 + 26.8750*s + 1 );
-dena =         sym2poly( s*(-0.0077*s + 1) );
-G13  = tf( numa, dena );
-G13  = zpk( G13 )
-clear s;
-
-figure(); rlocus( P13 ); grid on;
-figure(); rlocus( G13 ); grid on;
-figure(); rlocus( P13*G13 ); grid on;
-figure(); nichols( P13*G13 ); grid on;
-
-lpshape( wl, ubdb, P13, G13 );
-%}
