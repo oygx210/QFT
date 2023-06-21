@@ -47,7 +47,79 @@ addpath( genpath(src) );
 %% [INFO] Strings
 ACK = 'COMPLETED\n\n';
 
-%% Generate SS model using analytical approach
+%%
+% Example 2.1 from Mario Garcia-Sanz's:
+%   "Robust Control Engineering: Practical QFT Solutions"
+%
+%
+%	Consider a continuous-time, siso, negative unity feedback system
+%
+%                                        |V(s)                |D(s)
+%          ----  +           ----        v        ----        v
+%   ----> |F(s)|--> O ----> |G(s)| ----> O ----> |P(s)| ----> O ------>
+%   R(s)   ----     ^ -      ----                 ----        |  Y(s)
+%                   |                  ----                   |
+%                   ----------------- |H(s)| -----------------
+%                                      ----
+%
+%
+%       The plant P(s) has parametric a uncertainty model:
+%	                                 KT                    
+%	   P(s)  =  ------------------------------------------- 
+%	            (J.La)s^2 + (J.Ra + b.La)s + (b.Ra + KT.Ke)     
+%
+%   Where
+%       J  in [ J_min,  J_max], b  in [ b_min,  b_max]
+%       La in [La_min, La_max], Ra in [Ra_min, Ra_max]
+%       KT in [KT_min, KT_max],         Ke = KT
+%
+%
+%	The performance specifications are: design a controller
+%       G(s) such that it achieves
+%
+%  1) Type 1: Stability specification
+%       ==> Corresponds to sisobnds( 1, ... )
+%
+%                   |  P(jw)G(jw)  |
+%       |T_1(jw)| = |--------------| <= del_1(w) == W_s == 1.46
+%                   |1 + P(jw)G(jw)|
+%
+%       w in [1, 10000] rad/s
+%
+%  2) Type 3: Sensitivity OR Disturbance at plant output specification 
+%       ==> Corresponds to sisobnds( 2, ... )
+%
+%                   |       1      |                  (s/a_d)
+%       |T_3(jw)| = |--------------| <= del_3(w) == -----------
+%                   |1 + P(jw)G(jw)|                (s/a_d) + 1
+%
+%       w in [1, 1000] rad/s ; a_d = 1,000
+%
+%  3) Type 6: Reference tracking specification
+%       ==> Corresponds to sisobnds( 7, ... )
+%
+%                                 |        P(jw)G(jw)  |
+%       del_6_lo(w) < |T_3(jw)| = |F(jw) --------------| <= del_6_hi(w)
+%                                 |      1 + P(jw)G(jw)|
+%
+%       w in [1, 5000] rad/s
+%
+%   Where
+%
+%                     |        1        |
+%       del_6_lo(w) = |-----------------| ; a_L = 1000
+%                     | ((s/a_L) + 1)^2 |
+%
+%                     |       ((s/a_U) + 1)       |
+%       del_6_hi(w) = |---------------------------| ; a_U = 1000
+%                     | (s/w_n)^2 + (2zs/w_n) + 1 |
+%
+%       z = 0.8 , w_n = 1.25a_u/z
+%
+%
+
+%% DOUBLE CHECK
+% Generate SS model using analytical approach
 
 M_0 = 2.0   ;                   % Mass of cart                  [  kg  ]
 m_0 = 0.075 ;                   % Mass of rod                   [  kg  ]
@@ -121,35 +193,8 @@ NDX = 1;                                            % Plant counter
 for var1 = 1:grid_M                                 % Loop over M
     M = M_g( var1 );                                % ....
 
-    for var2 = 1:grid_m                             % Loop over m
-        m = m_g( var2 );                            % ....
-
-        % --- Here we create the plant TF
-        A_g = [ 0      1       0            0   ;
-                0      0   -m*g/M           0   ;
-                0      0       0            1   ;
-                0      0   (M+m)*g/(M*h)    0 ] ;
-        % ------------------------------
-        B_g = [ 0       ;
-                1/M     ;
-                0       ;
-               -1/(M*h) ];
-        % ------------------------------
-        C_g = [ 1 0 0 0  ;
-                0 0 1 0 ];
-        % ------------------------------
-        D_g = [ 0  ;
-                0 ];
-
-        % --- Generate grided TF from grided SS model
-        sys_g = ss( A_g, B_g, C_g, D_g              , ...
-                    'StateName'    ,   stateNames   , ...
-                    'InputName'    ,   inputNames   , ...
-                    'OutputName'   ,   outputNames );
-        TF_g = tf( sys_g );
-        P_y1(:, :, NDX) = TF_g(1);      % Transfer Function of cart
-        NDX = NDX + 1;                  % Incerement counter
-    end
+    P_y1(:, :, NDX) = tf( 1, [M 0 0] );             % Transfer Function
+    NDX = NDX + 1;                                  % Incerement counter
 end
 
 % --- Compare to pre-known form from MGS book
@@ -178,11 +223,7 @@ fprintf( '\tComputing nominal plant...' );
 %   Any one of the models above can be used as the nominal plant.
 %   We just happened to chose this one.
 %
-syms s;
-num = sym2poly( -h*s^2 + g );
-den = sym2poly( s^2*(-M_0*h*s^2 + (M_0 + m)*g) );
-P_0 = tf( num, den ) ;                  % Nominal plant TF
-clear s;
+P_0 = tf( 1, [M_0 0 0] ) ;              % Nominal plant TF
 
 % --- Append nominal plant to the end of the gridded plants
 P_y1( 1, 1, end+1 ) = P_0;
@@ -460,7 +501,7 @@ chksiso( 7, wl(ind), del_6, P, [], G, [], F );
 
 
 %% Check system/controller against Nyquist stability guidelines
-clc
+
 % --- NOTE:
 %   * Adding a zero corresponds to a +ve phase gain of +45deg / decade
 %   * Adding a pole corresponds to a -ve phase drop of -45deg / decade
@@ -480,8 +521,8 @@ delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the le
 T_CL = T_OL/(1+T_OL);
 
 % Check if Nyquist stability criterions are met
-nyquistStability( tf(T_OL), false )
-% zpk( T_OL )
+nyquistStability( tf(T_OL), true )
+zpk( T_OL )
 
 % Plot
 if( PLOT )
