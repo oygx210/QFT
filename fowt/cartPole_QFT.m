@@ -80,11 +80,6 @@ sys_theory = ss( A_theory, B_theory, C_theory, D_theory , ...
 % --- Generate TF from SS model
 TF_theory = tf( sys_theory );
 
-% --- Compare to pre-known form from MGS book
-syms s;
-P_21 = vpa( 1 / (-M_0*h*s^2+(M_0+m_0)*g) );     % Pole/Input
-clear s;
-
 %% Cart-Pole tranfer functions
 p_11 = tf( 1, [M_0 0 0] );                      % Cart TF
 p_21 = tf( 1, [-M_0*h 0 (M_0+m_0)*g] );         % Pole TF
@@ -102,7 +97,7 @@ G_file  = [ src 'MGS_linearizedInvertedPendulum_Pole_V2.shp' ];
 G_theta = getqft( G_file );
 
 % --- Cart controller, G_x(s)
-G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_V2.shp' ];
+G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp' ];
 G_x     = getqft( G_file );
 
 % --- Cart controller, G_x(s)

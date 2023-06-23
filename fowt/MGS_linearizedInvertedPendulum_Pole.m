@@ -22,7 +22,7 @@ fontsize = 12;
 % Flags
 CNTR = 1;                                   % Figure handle counter
 PLOT = true;                                %#ok<NASGU> If true, plot figures!
-% PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
+PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
 PRNT = true;                                %#ok<NASGU>
 % PRNT = false;                               % COMMENT OUT TO PRINT FIGURES
 
@@ -475,8 +475,10 @@ fprintf( '\tGrouping bounds...' );
 
 % --- Grouping bounds
 bdb = grpbnds( bdb1, bdb2 );
-plotbnds(bdb); 
-title('All Bounds');
+if( PLOT )
+    plotbnds(bdb); 
+    title('All Bounds');
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -484,8 +486,10 @@ fprintf( '\tIntersection of bounds...' );
 
 % --- Find bound intersections
 ubdb = sectbnds(bdb);
-plotbnds(ubdb);
-title('Intersection of Bounds');
+if( PLOT )
+    plotbnds(ubdb);
+    title('Intersection of Bounds');
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -496,8 +500,10 @@ fprintf( ACK );
 fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
-% --- Design TF of G(s)
-G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Pole_V2.shp';
+% --- Directory where QFT generated controllers are stored
+src = './controllerDesigns/';
+% --- Pole controller, G_theta(s)
+G_file  = [ src 'MGS_linearizedInvertedPendulum_Pole_V2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -564,7 +570,7 @@ chksiso( 2, wl(ind), del_3, P, [], G );
 ylim( [-90 10] );
 
 
-%% Check for system stability
+%% Check system/controller against Nyquist stability guidelines
 
 % --- NOTE:
 %   * Adding a zero corresponds to a +ve phase gain of +45deg / decade
@@ -576,45 +582,42 @@ ylim( [-90 10] );
 %   * For complex roots, phase gain/drop is +/-90deg
 
 % Open-loop TF
-T_OL = P_0*G; 
+T_OL = P_0*G;
+[~, phi_L0] = bode( T_OL, 1e-16 );
+[~, phi_Lw] = bode( T_OL, 1e+16 );
+delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the left
 
 % Closed-loop TF
 T_CL = T_OL/(1+T_OL);
 
-% Draw bode plot for further analysis
-figure();    bode( T_OL ); grid on;
-figure(); impulse( T_CL ); grid on;
+% Check if Nyquist stability criterions are met
+nyquistStability( tf(T_OL), false )
+zpk( T_OL )
 
-%% Determine Nyquist stability for controller design guidelines
-
-[zc, N, num_p_RHP, Na, Nb, Nc, ...
- Nd, zpCancel, k, sigm, alpha, gamma] = nyquistStability( P_0 )
-
-figure(); nichols( P_0 ); grid on;
-figure(); nyquist( P_0 );
-
-%% Check controller against Nyquist stability guidelines
-
-G_guideline = zpk( [-3.25], [-1000], -5.3395e+05 );
-lpshape( wl, ubdb, L0, G_guideline );
-
-% Open-loop TF
-T_OL_guideline = P_0*G_guideline;
-% Closed-loop TF
-T_CL_guideline = T_OL_guideline/(1+T_OL_guideline);
-
-output = nyquistStability( tf(G_guideline) )
-
+% Plot
 if( PLOT )
-    % Plot controller on Nichols and Nyquist charts
-    figure(); nichols( G_guideline ); grid on;
-    figure(); nyquist( G_guideline );
-
     % Draw bode plot for further analysis
-    figure();    bode( T_OL_guideline ); grid on;
-    figure(); impulse( T_CL_guideline ); grid on;
+    figure();    bode( T_OL ); grid on;
+    figure(); impulse( T_CL ); grid on;
 end
 
-% Re-check nyquistStability()
-output = nyquistStability( tf(T_OL_guideline) )
+%% Check plant against Nyquist stability guidelines
 
+output = nyquistStability( P_0 );
+
+if( PLOT )
+    figure();  rlocus( P_0 ); grid on;
+    figure(); nichols( P_0 ); grid on;
+    figure(); nyquist( P_0 );
+end
+
+%% MISC. TEMPORARY OPERATIONS
+
+clc;
+% Open-loop TF
+T_OL = P_0*G;
+% Closed-loop TF
+T_CL = T_OL/(1+T_OL);
+fprintf( "\n-> G(s)\n" ); nyquistStability( tf(G), false )
+fprintf( "\n-> P(s)\n" ); nyquistStability( P_0, false )
+fprintf( "\n-> L(s)\n" ); nyquistStability( T_OL, false )

@@ -25,7 +25,7 @@ fontsize = 12;
 % Flags
 CNTR = 1;                                   % Figure handle counter
 PLOT = true;                                %#ok<NASGU> If true, plot figures!
-% PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
+PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
 PRNT = true;                                %#ok<NASGU>
 % PRNT = false;                               % COMMENT OUT TO PRINT FIGURES
 
@@ -445,7 +445,7 @@ fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
 % --- Design TF of G(s)
-G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Cart_V2.shp';
+G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp';
 if( isfile(G_file) )
     G = getqft( G_file );
 else
