@@ -444,8 +444,10 @@ fprintf( ACK );
 fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
-% --- Design TF of G(s)
-G_file = './controllerDesigns/MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp';
+% --- Directory where QFT generated controllers are stored
+src = './controllerDesigns/';
+% --- Pole controller, G_theta(s)
+G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -465,20 +467,28 @@ lpshape( wl, ubdb, L0, G );
 % [INFO] ...
 fprintf( ACK );
 
-%% Step 10: Synthesize Prefitler F(s)
+%% Step 10: Synthesize Prefilter F(s)
 
 % [INFO] ...
 fprintf( 'Step 10:' );
 fprintf( '\tSynthesize F(s)...' );
 
 % --- Pre-filter TF definition
-syms s;
-num = 0.017179 .* sym2poly( (s+0.9)*(s+10.2)*(s+62.58) );
-den = sym2poly( (s+100)*(s+0.4612)*(s+0.2054) );
-clear s;
-
-% --- Construct initial pre-filter TF
-F = tf( num, den );
+% --- Directory where QFT generated controllers are stored
+src = './controllerDesigns/';
+% --- Pole controller, G_theta(s)
+F_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.fsh' ];
+if( isfile(F_file) )
+    F = getqft( F_file );
+else
+    syms s;
+    num = 0.017179 .* sym2poly( (s+0.9)*(s+10.2)*(s+62.58) );
+    den = sym2poly( (s+100)*(s+0.4612)*(s+0.2054) );
+    clear s;
+    
+    % --- Construct initial pre-filter TF
+    F = tf( num, den );
+end
 
 % --- Pre-filter loop-shaping
 pfshape( 7, wl, del_6, P, [], G, [], F );
