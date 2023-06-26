@@ -423,8 +423,11 @@ fprintf( '\tGrouping bounds...' );
 
 % --- Grouping bounds
 bdb = grpbnds( bdb1, bdb7 );
-plotbnds(bdb); 
-title('All Bounds');
+
+if( PLOT )
+    plotbnds(bdb); 
+    title('All Bounds');
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -432,8 +435,10 @@ fprintf( '\tIntersection of bounds...' );
 
 % --- Find bound intersections
 ubdb = sectbnds(bdb);
-plotbnds(ubdb);
-title('Intersection of Bounds');
+if( PLOT )
+    plotbnds(ubdb);
+    title('Intersection of Bounds');
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -446,7 +451,7 @@ fprintf( '\tSynthesize G(s)...' );
 
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
-% --- Pole controller, G_theta(s)
+% --- Cart controller, G_x(s)
 G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
@@ -473,10 +478,9 @@ fprintf( ACK );
 fprintf( 'Step 10:' );
 fprintf( '\tSynthesize F(s)...' );
 
-% --- Pre-filter TF definition
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
-% --- Pole controller, G_theta(s)
+% --- Pre-filter, F(s)
 F_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
