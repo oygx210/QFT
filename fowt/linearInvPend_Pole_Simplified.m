@@ -1,4 +1,5 @@
 % Linearized inverted pendulum QFT control
+%   Pole - Simplified (assume M >> m)
 %
 %   AUTHOR  : Mohammad Odeh
 %   DATE    : Jun.  5th, 2023
@@ -6,9 +7,6 @@
 % CHANGELOG :
 %   Jun.  5th, 2023
 %       - Initial script
-%
-%   Jun. 19th, 2023
-%       - Working controller is MGS_linearizedInvertedPendulum_Cart_V2.shp
 %
 
 %% Setup environment
@@ -118,8 +116,7 @@ ACK = 'COMPLETED\n\n';
 %
 %
 
-%% DOUBLE CHECK
-% Generate SS model using analytical approach
+%% Generate SS model using analytical approach
 
 M_0 = 2.0   ;                   % Mass of cart                  [  kg  ]
 m_0 = 0.075 ;                   % Mass of rod                   [  kg  ]
@@ -162,8 +159,7 @@ TF_theory = tf( sys_theory );
 %   max_    : Maximum value
 %   grid_   : Gridding
 %
-min_M   = 1.50;     max_M   = 2.50;     grid_M  = 25;
-min_m   = 0.05;     max_m   = 0.09;     grid_m  = 5;
+min_M   = 1.50;     max_M   = 2.50;     grid_M  = 100;
 
 
 % --- Gridding
@@ -171,8 +167,6 @@ min_m   = 0.05;     max_m   = 0.09;     grid_m  = 5;
 %   _g  : Gridded variable
 %
 M_g = logspace( log10(min_M)    ,   log10(max_M)    ,   grid_M );
-m_g = logspace( log10(min_m)    ,   log10(max_m)    ,   grid_m );
-
 
 % --- Plant generation
 %   *** Note on transfer function generation:
@@ -183,7 +177,7 @@ m_g = logspace( log10(min_m)    ,   log10(max_m)    ,   grid_m );
 %       i.e. => P( 1, 1, 300 ) == SISO with 300 TFs
 %
 n_Plants = grid_M;                                  % Number of plants
-P_y1 = tf( zeros(1,1,n_Plants) );                   % Pre-allocate memory
+P_y2 = tf( zeros(1,1,n_Plants) );                   % Pre-allocate memory
 
 % [INFO] ...
 fprintf( 'Step 1:' );
@@ -193,13 +187,36 @@ NDX = 1;                                            % Plant counter
 for var1 = 1:grid_M                                 % Loop over M
     M = M_g( var1 );                                % ....
 
-    P_y1(:, :, NDX) = tf( 1, [M 0 0] );             % Transfer Function
+    % --- Here we create the plant TF
+    A_g = [ 0      1        0       0   ;
+            0      0        0       0   ;
+            0      0        0       1   ;
+            0      0        g/h     0 ] ;
+    % ------------------------------
+    B_g = [ 0       ;
+            1/M     ;
+            0       ;
+           -1/(M*h) ];
+    % ------------------------------
+    C_g = [ 1 0 0 0  ;
+            0 0 1 0 ];
+    % ------------------------------
+    D_g = [ 0  ;
+            0 ];
+
+    % --- Generate grided TF from grided SS model
+    sys_g = ss( A_g, B_g, C_g, D_g              , ...
+                'StateName'    ,   stateNames   , ...
+                'InputName'    ,   inputNames   , ...
+                'OutputName'   ,   outputNames );
+    TF_g = tf( sys_g );
+    P_y2(:, :, NDX) = tf( 1, [-M*h, 0, M*g] );      % TF of pole
     NDX = NDX + 1;                                  % Incerement counter
 end
 
 % --- Compare to pre-known form from MGS book
 syms s;
-P_11 = vpa( (-h*s^2+g) / (s^2*(-M_0*h*s^2+(M_0+m_0)*g)) );  % Cart/Input
+P_21 = vpa( 1 / (-M_0*h*s^2+(M_0)*g) );                 % Pole/Input
 clear s;
 
 % [INFO] ...
@@ -223,13 +240,13 @@ fprintf( '\tComputing nominal plant...' );
 %   Any one of the models above can be used as the nominal plant.
 %   We just happened to chose this one.
 %
-P_0 = tf( 1, [M_0 0 0] ) ;              % Nominal plant TF
+P_0 = tf( 1, [-M_0*h, 0, (M_0)*g] );             % Nominal plant TF
 
-% --- Append nominal plant to the end of the gridded plants
-P_y1( 1, 1, end+1 ) = P_0;
+% --- Append to the end of the gridded plants
+P_y2( 1, 1, end+1 ) = P_0;
 
 % --- Select which I/O pair we want to work with
-P   = P_y1  ;                           % This corresponds to gridded x/Fx
+P   = P_y2  ;                           % This corresponds to gridded x/Fx
 SS_0 = ss(P_0);                         % Convert to SS for use in Simulink
 % --- Define nominal plant case
 nompt = length( P );
@@ -273,9 +290,9 @@ if( PLOT )
     set( hLegend, 'location', 'southeast' );    % Access and change location
     
     % --- Change plot limits
-%     xmin = -25; xmax = 10; dx = 5;
-%     xlim( [xmin xmax] );
-%     xticks( xmin:dx:xmax )
+    xmin = -25; xmax = 10; dx = 5;
+    xlim( [xmin xmax] );
+    xticks( xmin:dx:xmax )
     title( 'Plant Templates' )
     
     % --- Beautify plot
@@ -321,26 +338,14 @@ fprintf( ACK );
 fprintf( 'Step 5:' );
 fprintf( '\tDefining performance specifications...' );
 
-% --- Type 6
+% --- Type 3
 % Frequencies of interest
-omega_6 =[ 0.01 0.05 0.1 0.5 1 ];
+omega_3 = [ 0.1 0.5 1 5 10 50 ];
 
 % Restriction
-% Upper bound
-syms s;
-a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.05;
-num = sym2poly( (s/a_U+1)*(1+eps_U) );
-den = sym2poly( (s/wn)^2 + (2*zeta*s/wn) + 1 );
-del_6_hi = tf( num, den );
-% Lower bound
-a_L = 0.25; eps_L = 0;
-num = 1 - eps_L;
-den = sym2poly( (s/a_L + 1)^2 );
-del_6_lo = tf( num, den );
-clear s;
-% Tracking weight
-del_6 = [ del_6_hi  ;
-          del_6_lo ];
+num     = [ 0.025   , 0.2   , 0.018 ];
+den     = [ 0.025   , 10    , 1     ];
+del_3   = tf( num, den );
 
 % [INFO] ...
 fprintf( ACK );
@@ -379,7 +384,7 @@ if( PLOT )
     % --- Plot bounds
     plotbnds( bdb1 );
     title( 'Robust Stability Bounds' );
-%     xlim( [-360 0] ); ylim( [-10 30] );
+    xlim( [-360 0] ); ylim( [-10 30] );
     make_nice_plot();
 end
 
@@ -388,10 +393,10 @@ fprintf( ACK );
 
 %% Step 7: Calculate Performance QFT Bounds
 
-% --------------------------------------------------
-% ---- Type 6: Reference tracking specification ----
-% --------------------------------------------------
-spec = 7;
+% -------------------------------------------
+% ---- Type 3: Sensitivity specification ----
+% -------------------------------------------
+spec = 2;
 
 % [INFO] ...
 fprintf( '\tComputing bounds: ' );
@@ -399,15 +404,15 @@ fprintf( 'bdb%i = sisobnds( %i, ... )\n', spec, spec );
 fprintf( '\t\t > ' );
 
 % --- Compute bounds
-bdb7 = sisobnds( spec, omega_6, del_6, P, [], nompt );
+bdb2 = sisobnds( spec, omega_3, del_3, P, [], nompt );
 
 if( PLOT )
     % [INFO] ...
     fprintf( 'Plotting bounds...' );
     
     % --- Plot bounds
-    plotbnds(bdb7);
-    title( 'Robust Tracking Bounds' );
+    plotbnds(bdb2);
+    title('Sensitivity Reduction Bounds');
     make_nice_plot();
 end
 
@@ -422,8 +427,7 @@ fprintf( 'Step 8:' );
 fprintf( '\tGrouping bounds...' );
 
 % --- Grouping bounds
-bdb = grpbnds( bdb1, bdb7 );
-
+bdb = grpbnds( bdb1, bdb2 );
 if( PLOT )
     plotbnds(bdb); 
     title('All Bounds');
@@ -451,67 +455,72 @@ fprintf( '\tSynthesize G(s)...' );
 
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
-% --- Cart controller, G_x(s)
-G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp' ];
+% --- Pole controller, G_theta(s)
+G_file  = [ src 'linearInvPend_Pole_Simplified_V2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
 else
-    zeros   = -0.300;
-    poles   = -15.00;
-    gain    = +150.0;
+    % From PID TUNER
+    PID_P   = -433.469;
+    PID_I   = -976.195;
+    PID_D   = - 47.263;
+    PID_N   =  262.366;
+
+    % Convert to proper form
+    Kp  = PID_P;
+    Ti  = Kp/PID_I;
+    Td  = Kp/PID_D;
+    N   = PID_N;
+    syms s;
+    num = Kp .* sym2poly( Ti*Td*(1+1/N)*s^2 + (Ti+Td/N)*s + 1 );    % Get coefficients
+    den = Ti .* sym2poly( s*( (Td/N)*s + 1 ) );                     % ...
+    clear s;
+    
     % Construct controller TF
-    G = zpk( zeros, poles, gain );
+    G = tf( num, den );
 end
 
 % Define a frequency array for loop shaping
-wl = linspace( 0.01, 500, 2048 );
+wl = logspace( log10(0.01), log10(500), 2048 );
 L0 = P( 1, 1, nompt );
 L0.ioDelay = 0; % no delay
 lpshape( wl, ubdb, L0, G );
 
-% [INFO] ...
-fprintf( ACK );
-
-%% Step 10: Synthesize Prefilter F(s)
-
-% [INFO] ...
-fprintf( 'Step 10:' );
-fprintf( '\tSynthesize F(s)...' );
-
-% --- Directory where QFT generated controllers are stored
-src = './controllerDesigns/';
-% --- Pre-filter, F(s)
-F_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.fsh' ];
-if( isfile(F_file) )
-    F = getqft( F_file );
-else
-    syms s;
-    num = 0.017179 .* sym2poly( (s+0.9)*(s+10.2)*(s+62.58) );
-    den = sym2poly( (s+100)*(s+0.4612)*(s+0.2054) );
-    clear s;
-    
-    % --- Construct initial pre-filter TF
-    F = tf( num, den );
-end
-
-% --- Pre-filter loop-shaping
-pfshape( 7, wl, del_6, P, [], G, [], F );
 
 % [INFO] ...
 fprintf( ACK );
+
+
+%% Step 10: Synthesize Prefitler F(s)
+% 
+% % [INFO] ...
+% fprintf( 'Step 10:' );
+% fprintf( '\tSynthesize F(s)...' );
+% 
+% syms s;
+% num = 1;
+% den = sym2poly( s/10 + 1 );
+% clear s;
+% 
+% F = tf( num, den );
+% 
+% pfshape( 1, wl, del_1, P, [], G, [], F );
+% 
+% % [INFO] ...
+% fprintf( ACK );
 
 %% Step 11-13: ANALYSIS
 
 disp(' ')
 disp('chksiso(1,wl,del_1,P,R,G); %margins spec')
-chksiso( 1, wl, del_1, P, [], G, [], F );
+chksiso( 1, wl, del_1, P, [], G );
 % ylim( [0 3.5] );
 
 disp(' ')
-disp('chksiso(7,wl,del_6,P,R,G); %Reference tracking specification')
-ind = find(wl <= 1);
-chksiso( 7, wl(ind), del_6, P, [], G, [], F );
-% ylim( [-90 10] );
+disp('chksiso(2,wl,del_3,P,R,G); %Sensitivity reduction spec')
+ind = find(wl <= 50);
+chksiso( 2, wl(ind), del_3, P, [], G );
+ylim( [-90 10] );
 
 
 %% Check system/controller against Nyquist stability guidelines
@@ -535,7 +544,7 @@ delta       = sign( phi_L0 - phi_Lw );      % +ve if Lw goes initially to the le
 T_CL = T_OL/(1+T_OL);
 
 % Check if Nyquist stability criterions are met
-nyquistStability( tf(T_OL), true )
+nyquistStability( tf(T_OL), false )
 zpk( T_OL )
 
 % Plot
@@ -557,3 +566,20 @@ end
 
 %% MISC. TEMPORARY OPERATIONS
 
+clc;
+% Open-loop TF
+T_OL = P_0*G;
+% Closed-loop TF
+T_CL = T_OL/(1+T_OL);
+fprintf( "\n-> G(s)\n" ); nyquistStability( tf(G), false )
+fprintf( "\n-> P(s)\n" ); nyquistStability( P_0, false )
+fprintf( "\n-> L(s)\n" ); nyquistStability( T_OL, false )
+
+% Check SISO for sensitivity reduction
+% ind = find(wl <= 50);
+% chksiso( 2, wl(ind) , del_3, P, [], G );
+chksiso( 1, wl      , del_1, P, [], G );
+ylim( [-90 10] );
+
+% Check impulse response
+figure(); impulse( T_CL ); grid on;

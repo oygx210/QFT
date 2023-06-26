@@ -47,7 +47,7 @@ addpath( genpath(src) );
 %% Generate SS model using analytical approach
 
 M_0 = 2.0   ;                   % Mass of cart                  [  kg  ]
-m_0 = 0.075 ;                   % Mass of rod                   [  kg  ]
+m_0 = 0*0.075 ;                   % Mass of rod                   [  kg  ]
 g   = 9.8   ;                   % Gravitational acceleration    [m.s^-2]
 h   = 0.5   ;                   % Rod length                    [  m   ]
 
@@ -81,8 +81,8 @@ sys_theory = ss( A_theory, B_theory, C_theory, D_theory , ...
 TF_theory = tf( sys_theory );
 
 %% Cart-Pole tranfer functions
-p_11 = tf( 1, [M_0 0 0] );                      % Cart TF
-p_21 = tf( 1, [-M_0*h 0 (M_0+m_0)*g] );         % Pole TF
+p_11 = tf( [-h, 0, g], [-M_0*h, 0, (M_0+m_0)*g, 0] );   % Cart TF
+p_21 = tf( 1, [-M_0*h, 0, (M_0+m_0)*g] );               % Pole TF
 
 %% Get feedback controller, G(s), and pre-filter, F(s), generated using QFT
 
@@ -93,15 +93,16 @@ fprintf( 'Retrieving stored G(s) and F(s)...' );
 src = './controllerDesigns/';
 
 % --- Pole controller, G_theta(s)
-G_file  = [ src 'MGS_linearizedInvertedPendulum_Pole_V2.shp' ];
+% G_file  = [ src 'linearInvPend_Pole_Simplified_V2.shp' ];
+G_file  = [ src 'linearInvPend_Pole_V2.shp' ];
 G_theta = getqft( G_file );
 
 % --- Cart controller, G_x(s)
-G_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_Simplified_V2.shp' ];
+G_file  = [ src 'linearInvPend_Cart_Simplified_V2.shp' ];
 G_x     = getqft( G_file );
 
 % --- Cart controller, G_x(s)
-F_file  = [ src 'MGS_linearizedInvertedPendulum_Cart_V2.fsh' ];
+F_file  = [ src 'linearInvPend_Cart_Simplified_V2.fsh' ];
 F_x     = getqft( F_file );
 
 fprintf( 'DONE!\n' );
