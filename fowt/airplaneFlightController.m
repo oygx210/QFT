@@ -114,11 +114,11 @@ ACK = 'COMPLETED\n\n';
 %   max_    : Maximum value
 %   grid_   : Gridding
 %
-min_k    = 0.2; max_k    = 2.0 ; grid_k    = 3;
-min_z    = 0.5; max_z    = 0.75; grid_z    = 3;
-min_p    = 1.0; max_p    = 10.0; grid_p    = 3;
-min_wn   = 5.0; max_wn   = 6.0 ; grid_wn   = 3;
-min_zeta = 0.8; max_zeta = 0.9 ; grid_zeta = 3;
+min_k    = 0.2; max_k    = 2.0 ; grid_k    = 2;
+min_z    = 0.5; max_z    = 0.75; grid_z    = 2;
+min_p    = 1.0; max_p    = 10.0; grid_p    = 2;
+min_wn   = 5.0; max_wn   = 6.0 ; grid_wn   = 2;
+min_zeta = 0.8; max_zeta = 0.9 ; grid_zeta = 2;
 
 
 % --- Gridding
@@ -532,4 +532,12 @@ M = tf( 0.2, conv([1 0], [1 1]) );
 V = tf( 1, [1/5.5 1] );
 
 % --- Construct G_f(s)
-G_f = -P_c^-1*M*V;
+G_f = minreal( -P_c^-1*M*V );
+
+% --- Update G(s) to consider contribution of G_f(s)
+syms s;
+num = 60 .* sym2poly( (s/6 + 1)*(s/10 + 1)*(s/150 + 1) );
+den = sym2poly( (s/70+1)*(s/200+1)^2 );
+clear s;
+G_updated = tf( num, den );         % Updated controller
+
