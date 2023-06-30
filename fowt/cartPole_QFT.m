@@ -94,7 +94,8 @@ src = './controllerDesigns/';
 
 % --- Pole controller, G_theta(s)
 % G_file  = [ src 'linearInvPend_Pole_Simplified_V2.shp' ];
-G_file  = [ src 'linearInvPend_Pole_V2.shp' ];
+% G_file  = [ src 'linearInvPend_Pole_V2.shp' ];
+G_file  = [ src 'linearInvPend_Pole_with_Feedforward_V2.shp' ];
 G_theta = getqft( G_file );
 
 % --- Cart controller, G_x(s)
@@ -104,6 +105,13 @@ G_x     = getqft( G_file );
 % --- Cart controller, G_x(s)
 F_file  = [ src 'linearInvPend_Cart_Simplified_V2.fsh' ];
 F_x     = getqft( F_file );
+
+% --- Define disturbance dynamics and feedforward controller
+% --- Define M(s)
+M   = tf( 400, [1 1e3] );
+Gf_file = [ src 'linearInvPend_Cart_Simplified_V2.fsh' ];
+G_f     = getqft( Gf_file );
+% G_f     = tf( [7 0 -142], [1 35 0]);
 
 fprintf( 'DONE!\n' );
 

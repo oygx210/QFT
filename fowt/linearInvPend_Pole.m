@@ -626,3 +626,145 @@ chksiso( 1, wl, del_1, P, [], G );
 
 % Check impulse response
 figure(); impulse( T_CL ); grid on;
+
+%% Feedback and feedforward
+% Recall, G_f(s) = -P_c(s)^-1*M(s)*V(s)
+%   Where,
+%
+%       1) G_f(s): Feedforward element
+%       2) P_c(s): A central plant within the uncertainty
+%       3)   M(s): Dynamics of the disturbance over the plant output
+%       3)   V(s): A LP filter with high frequency poles
+%
+
+% --- Define P_c(s)
+avg_M = mean( [min_M max_M] );
+avg_m = mean( [min_m max_m] );
+% Generate transfer function
+syms s;
+num = 1;
+den = sym2poly( -avg_M*h*s^2 + (avg_M+avg_m)*g );
+clear s;
+P_c(1, 1, 1) = tf( num, den );          % Central plant within uncertainty
+
+% --- Define M(s)
+M   = tf( 400, [1 1e3] );
+% M = tf( 0.2, [1 0] );
+
+% --- Define V(s)
+% V = tf( 1, [1/35 1] );
+V = tf( 1, [1/250 1] );
+
+% --- Construct G_f(s)
+G_f = minreal( -P_c^-1*M*V );
+% Store in a file
+Gf_file  = [ src 'linearInvPend_FeedForwardController_Gf.shp' ];
+putqft( Gf_file, G_f );
+
+% % --- Update G(s) to consider contribution of G_f(s)
+% syms s;
+% num = 60 .* sym2poly( (s/6 + 1)*(s/10 + 1)*(s/150 + 1) );
+% den = sym2poly( (s/70+1)*(s/200+1)^2 );
+% clear s;
+% G_updated = tf( num, den );         % Updated controller
+
+%% Test the feedforward bound generator
+% Recall, the disturbance rejection with feedforward element is defined as
+%
+%   | y(s) |   | M(s) + P(s)G_f(s) |
+%   | ---- | = | ----------------- | <= δ_d(𝜔) , 𝜔 𝜖 Ω_d
+%   | d(s) |   |    1 + P(s)G(s)   |
+%
+%   bdb = genbnds( ptype, w, Ws, A, B, C, D, Pnom, phs );
+%
+%   | y(s) |   |  A(s) + B(s)G(s)  |
+%   | ---- | = | ----------------- | <= Ws
+%   | d(s) |   |  C(s) + D(s)G(s)  |
+%
+
+% margins (1,1): g2=0
+disp(' ')
+disp( 'bdb12=genbnds(12,w,W11,a,b,c,d,P(1,1,1));' );
+
+% --- Working frequencies
+w = omega_3;
+
+% --- Desired disturbance rejection specification
+W11 = 0.1;
+
+% --- Matrices
+a = M;
+b = P*G_f;
+c = 1;
+d = P;
+
+% --- Bound generation (ptype = 12: Sensitivity or output disturbance
+%                                   rejection with feedforward)
+bdb12 = genbnds( 12, w, W11, a, b, c, d, P_0 );
+
+% % --- Plot bounds
+if( PLOT )
+    plotbnds( bdb12 );
+    title('Disturbance rejection specification with feedforward element Bounds');
+    make_nice_plot();
+end
+
+%% Step XYZ: Re-intersect QFT Bounds with new feedforward  bound
+
+% [INFO] ...
+fprintf( 'Step 8:' );
+fprintf( '\tGrouping bounds...' );
+
+% --- Grouping bounds
+% bdb = grpbnds( bdb1, bdb2 );
+bdb = grpbnds( bdb1, bdb12);
+if( PLOT )
+    plotbnds( bdb );
+    title('All Bounds');
+end
+
+% [INFO] ...
+fprintf( ACK );
+fprintf( '\tIntersection of bounds...' );
+
+% --- Find bound intersections
+ubdb = sectbnds( bdb );
+if( PLOT )
+    plotbnds( ubdb );
+    title('Intersection of Bounds');
+end
+
+% [INFO] ...
+fprintf( ACK );
+
+%% Check updated controller
+clc;
+
+
+% --- Directory where QFT generated controllers are stored
+src = './controllerDesigns/';
+% --- Pole controller, G_theta(s)
+G_file  = [ src 'linearInvPend_Pole_with_Feedforward_V2.shp' ];
+if( isfile(G_file) )
+    G_up = getqft( G_file );
+else
+    % Updated controller
+    G_up = tf( -15165.*[1 4.5], [1 190] );
+end
+
+% Open-loop TF
+T_OL = P_0*G_up;
+% Closed-loop TF
+T_CL = T_OL/(1+T_OL);
+fprintf( "\n-> G(s)\n" ); nyquistStability( tf(G_up), false )
+fprintf( "\n-> P(s)\n" ); nyquistStability( P_0, false )
+fprintf( "\n-> L(s)\n" ); nyquistStability( T_OL, false )
+
+% Check
+chksiso( 1, wl, del_1, P, [], G_up );
+
+% Check impulse response
+figure(); impulse( T_CL ); grid on;
+
+% --- UNCOMMENT FOR LOOPSHAPING
+lpshape( wl, ubdb, L0, G_up );
