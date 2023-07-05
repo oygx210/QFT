@@ -338,7 +338,7 @@ if( PLOT )
     set( hLegend, 'location', 'southeast' );    % Access and change location
     
     % --- Change plot limits
-    xmin = -25; xmax = 10; dx = 5;
+    xmin = -10; xmax = 10; dx = 2.5;
     xlim( [xmin xmax] );
     xticks( xmin:dx:xmax )
     title( 'Plant Templates' )
@@ -649,18 +649,18 @@ clear s;
 P_c(1, 1, 1) = tf( num, den );          % Central plant within uncertainty
 
 % --- Define M(s)
-M   = tf( 400, [1 1e3] );
+M   = tf( [1 0], 1 );
 % M = tf( 0.2, [1 0] );
 
 % --- Define V(s)
 % V = tf( 1, [1/35 1] );
-V = tf( 1, [1/250 1] );
+V = tf( 1, [1/500 1] );
 
 % --- Construct G_f(s)
-G_f = minreal( -P_c^-1*M*V );
-% Store in a file
-Gf_file  = [ src 'linearInvPend_FeedForwardController_Gf.shp' ];
-putqft( Gf_file, G_f );
+G_f = zpk(minreal( -P_c^-1*M*V ));
+% --- Store in a file
+% Gf_file  = [ src 'linearInvPend_FeedForwardController_Gf_V3.shp' ];
+% putqft( Gf_file, G_f );
 
 % % --- Update G(s) to consider contribution of G_f(s)
 % syms s;
@@ -691,7 +691,7 @@ disp( 'bdb12=genbnds(12,w,W11,a,b,c,d,P(1,1,1));' );
 w = omega_3;
 
 % --- Desired disturbance rejection specification
-W11 = 0.1;
+W11 = 0.2;
 
 % --- Matrices
 a = M;
@@ -739,8 +739,6 @@ end
 fprintf( ACK );
 
 %% Check updated controller
-clc;
-
 
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
@@ -762,10 +760,11 @@ fprintf( "\n-> P(s)\n" ); nyquistStability( P_0, false )
 fprintf( "\n-> L(s)\n" ); nyquistStability( T_OL, false )
 
 % Check
-chksiso( 1, wl, del_1, P, [], G_up );
+% chksiso( 1, wl, del_1, P, [], G_up );
 
 % Check impulse response
-figure(); impulse( T_CL ); grid on;
+% figure(); impulse( T_CL ); grid on;
 
 % --- UNCOMMENT FOR LOOPSHAPING
 lpshape( wl, ubdb, L0, G_up );
+

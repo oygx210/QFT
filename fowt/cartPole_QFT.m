@@ -108,8 +108,12 @@ F_x     = getqft( F_file );
 
 % --- Define disturbance dynamics and feedforward controller
 % --- Define M(s)
+% M   = tf( 1, [1 0] );
+% M   = tf( [0.1 0], [0.1 1] );
 M   = tf( 400, [1 1e3] );
-Gf_file = [ src 'linearInvPend_Cart_Simplified_V2.fsh' ];
+Gf_file  = [ src 'linearInvPend_Cart_Simplified_V2.shp' ];
+% Gf_file = [ src 'linearInvPend_FeedForwardController_Gf.shp' ];
+% Gf_file = [ src 'linearInvPend_FeedForwardController_Gf_V3.shp' ];
 G_f     = getqft( Gf_file );
 % G_f     = tf( [7 0 -142], [1 35 0]);
 
