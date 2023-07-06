@@ -126,4 +126,14 @@ I = eye(size(A_theory));
 Ps = C_theory*(s*I - A_theory)^-1*B_theory;
 clear s;
 
+%% RGA Analysis
 
+P       = diag( Ps );
+Lambda  = simplify( P .* inv(P).' );
+
+syms s;
+% Evaluate at s = jw = 0
+Lambda_0    = subs( Lambda, s,  0  );
+% Evaluate at s = jw = inf
+Lambda_inf  = subs( Lambda, s, inf );
+clear s;
