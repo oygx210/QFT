@@ -446,12 +446,14 @@ omega_6 = [ 1e-3 2.5e-3 5e-3 1e-2 2.5e-2 ];
 
 % --- Restrictions
 % Upper bound
-a_U = 0.025; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+% a_U = 0.025; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+a_U = 1e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 del_6_hi = tf( num, den );
 % Lower bound
-a_L = 0.050; eps_L = 0.025;
+% a_L = 0.050; eps_L = 0.025;
+a_L = 2.5e-2; eps_L = 0.025;
 num = 1-eps_L;
 den = [ conv([1/a_L 1], [1/a_L 1]) ];
 del_6_lo = tf( num, den );
@@ -660,8 +662,8 @@ fprintf( '\tSynthesize G(s)...' );
 src = './controllerDesigns/';
 
 % --- Controller, G(s)
-% G_file  = [ src 'G_R2.shp' ];
-G_file  = [ src 'G_R2_ver2.shp' ];
+% G_file  = [ src 'G_R2_fastResponse.shp' ];
+G_file  = [ src 'G_R2_slowResponse.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -697,8 +699,8 @@ fprintf( '\tSynthesize F(s)...' );
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-% F_file  = [ src 'F_11.fsh' ];
-F_file  = [ src 'F_R2.fsh' ];
+% F_file  = [ src 'F_R2_fastResponse.fsh' ];
+F_file  = [ src 'F_R2_slowResponse.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
 else
@@ -745,3 +747,22 @@ chksiso( 3, wl(ind), del_4, P, [], G );
 % ind = (min(omega_6) <= wl) & (wl <= max(omega_6));
 % chksiso( 7, wl(ind), del_6, P, [], G, [], F );
 % % ylim( [-0.1 1.3] );
+
+%% Quick impulse simulations
+% Some variables are manually generated, running this section as-is will
+% result in errors being raised
+
+gain = 1;%15e6/0.791;
+figure();
+impulse( feedback(P0*G*gain, 1) ); grid on; hold on;
+impulse( feedback(P0*GG*gain, 1) ); 
+% impulse( feedback(P0*GGG*15e6/0.791, 1) );
+title( "Impulse response" );
+make_nice_plot();
+
+figure();
+step( feedback(P0*G*gain, 1) ); grid on; hold on;
+step( feedback(P0*GG*gain, 1) );
+% step( feedback(P0*GGG*15e6/0.791, 1) );
+title( "Step Response" );
+make_nice_plot();
