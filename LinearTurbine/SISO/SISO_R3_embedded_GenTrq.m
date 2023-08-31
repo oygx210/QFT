@@ -1,16 +1,13 @@
-% Linearized turbine QFT control
+% Linearized turbine QFT control - SISO Regime 3
+%   Design controller for regime 2 and regime 3 separately then combine
+%   using MIMO methodology
 %
 %   AUTHOR  : Mohammad Odeh
-%   DATE    : Jul. 19th, 2023
+%   DATE    : Aug. 20th, 2023
 %
 % CHANGELOG :
-%   Jul. 19th, 2023
+%   Aug. 20th, 2023
 %       - Initial script
-%
-%   Aug.  2nd, 2023
-%       - Added generator torque for regime 3 operations
-%       - Added blade pitching actuator dynamics
-%       - Added wind disturbance
 %
 
 %% Setup environment
@@ -33,7 +30,7 @@ CNTR = 1;                                   % Figure handle counter
 
 % --- Enable/disable plotting figures
 PLOT = true;                                %#ok<NASGU> If true, plot figures!
-PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
+% PLOT = false;                               % COMMENT OUT TO PRINT FIGURES
 
 % --- Enable/disable printing figures
 PRNT = true;                                %#ok<NASGU>
@@ -51,7 +48,7 @@ C_line = [ C_line, C_line, C_line, C_line ];
 % Get current path to working directory and split
 pathParts = strsplit( pwd, filesep );
 % Go up one level and generate new path
-src = fullfile( pathParts{1:end-1} );
+src = fullfile( pathParts{1:end-2} );
 
 % If on a UNIX machine (i.e. macOS, Ubuntu, etc...), fix path since
 % strsplit() removes the leading '/' from the path.
@@ -64,7 +61,8 @@ addpath( genpath(src) );
 
 %% Read A, B, C, D matrices from linearized model
 data_dir    = './data/';
-name_mdl    = 'SS_R2_R3_w_ActuatorDynamics.mat';
+% name_mdl    = 'SS_linearizedTurbine_MIMO_R3.mat';
+name_mdl    = 'SS_linearizedTurbine_SISO_R3_embedded_GenTrq.mat';
 stateSpace  = load( [data_dir name_mdl ] );
 
 % --- Get number of states
@@ -82,29 +80,30 @@ B = B_full( 1:nStatesKeep   , 1:end         );
 C = C_full( 1:end           , 1:nStatesKeep );
 D = D_full( 1:height(C)     , 1:end         );
 
-% >>>>>>>>>>>> ============================= <<<<<<<<<<<<
-% ------------ __START__: MODIFICATION ALERT ------------
-% >>>>>>>>>>>> ============================= <<<<<<<<<<<<
-%
+% ======================== __START__: MODIFICATION ========================
+% This modification is because I exported the file with the wrong actuator
+% cut-off frequency. Fortunately, it does NOT affect the uncertainties in
+% the model.
+A( 5,  5) = -0.1745;
+A( 8,  8) = -0.1745;
+A(11, 11) = -0.1745;
 
-% Remove extra unobservable state introduced by Dymola in [C]
-C = C( 1, : );
-D = D( 1:height(C), 1:end );
+B( 5,  1) =  0.1745;
+B( 8,  1) =  0.1745;
+B(11,  1) =  0.1745;
 
-% >>>>>>>>>>>> ============================= <<<<<<<<<<<<
-% ------------ __ END __: MODIFICATION ALERT ------------
-% >>>>>>>>>>>> ============================= <<<<<<<<<<<<
+% ======================== __ END __: MODIFICATION ========================
+
 
 % --- Generate state-space model
 % States and inputs names
 stateNames  = [ "phi"           , "omega"           , ...
                 "blade120_phi"  , "blade120_omega"  , "blade120_Mact" , ...
                 "blade0_phi"    , "blade0_omega"    , "blade0_Mact"   , ...
-                "blade240_phi"  , "blade240_omega"  , "blade2400_Mact", ...
-                "wind_delta_x"  , "wind_delta_y"    , "wind_delta_z"  , ...
-                "GenTrq" ];
-inputNames  = [ "u_{pitch}" ];
-outputNames = [ "omega" ];
+                "blade240_phi"  , "blade240_omega"  , "blade240_Mact" , ...
+                "V_{wind_x}"    , "V_{wind_y}"      , "V_{wind_z}"   ];
+inputNames  = [ "u_{CPC}" ];
+outputNames = [ "\omega_{rot}", 'V_{wind_x}' ];
 % State-space model
 sys         = ss( A, B, C, D                , ...
                   'StateName' , stateNames  , ...
@@ -113,14 +112,10 @@ sys         = ss( A, B, C, D                , ...
 % --- Generate TF from SS model
 TF = tf( sys );
 
-%% __DEPRECATED__Actuator Dynamics, M_act(s)
-
-% --- The blade pitching actuator has a rate of 10 deg/s <==> 0.1745 rad/s
-%
-pitch_rate_deg = 10;                        % Pitching rate in [deg/s]
-pitch_rate_rad = pitch_rate_deg*pi/180;     % Pitching rate in [rad/s]
-pitch_rate_hz  = pitch_rate_rad/(2*pi);     % Pitching rate in [  Hz ]
-M_act = tf( 1, [pitch_rate_rad 1] );
+% --- Generate TF using theory
+syms s;
+I = eye( size(A) );
+P_manual = C*(s*I - A)^-1*B + D;
 
 %% Step 1: Plant Modeling & Uncertainty
 
@@ -129,70 +124,22 @@ M_act = tf( 1, [pitch_rate_rad 1] );
 % add the uncertainties into those elements
 %
 
-% % --- Plant parameters (approach 1)
-% %   min_    : Minimum value
-% %   max_    : Maximum value
-% %   grid_   : Gridding
-% %
-% loVal   = 0.90;             % min_ val is 90%  of nominal
-% hiVal   = 1.10;             % max_ val is 110% of nominal
-% % Variables we want to vary
-% A2_1     = A(2, 1);  A2_2     = A(2, 2);
-% A2_3     = A(2, 3);
-% A2_5     = A(2, 5);  A2_6     = A(2, 6);
-% A2_8     = A(2, 8);  A2_9     = A(2, 9);
-% A2_11    = A(2,11);
-% % Add variations
-% min_A2_1 = A2_1*loVal;    max_A2_1 = A2_1*hiVal;    grid_A2_1 = 2;
-% min_A2_2 = A2_2*loVal;    max_A2_2 = A2_2*hiVal;    grid_A2_2 = 2;
-% min_A2_3 = A2_3*loVal;    max_A2_3 = A2_3*hiVal;    grid_A2_3 = 2;
-% min_A2_5 = A2_5*loVal;    max_A2_5 = A2_5*hiVal;    grid_A2_5 = 2;
-% min_A2_6 = A2_6*loVal;    max_A2_6 = A2_6*hiVal;    grid_A2_6 = 2;
-% min_A2_8 = A2_8*loVal;    max_A2_8 = A2_8*hiVal;    grid_A2_8 = 2;
-% min_A2_9 = A2_9*loVal;    max_A2_9 = A2_9*hiVal;    grid_A2_9 = 2;
-% min_A2_11= A2_11*loVal;   max_A2_11= A2_11*hiVal;   grid_A2_11= 2;
-
-% --- Plant parameters (approach 2)
+% --- Plant parameters
 %   min_    : Minimum value
 %   max_    : Maximum value
 %   grid_   : Gridding
 %
 
-% % Variables we want to vary (set 1)
-% A2_1     = A(2, 1);  A2_2     = A(2, 2);
-% A2_3     = A(2, 3);
-% A2_5     = A(2, 5);  A2_6     = A(2, 6);
-% A2_8     = A(2, 8);  A2_9     = A(2, 9);
-% A2_11    = A(2,11);
-% A2_12    = A(2,12);
-% % Add variations (set 1)
-% min_A2_1  = -3.201e-5;   max_A2_1  = 2.2603e-6;   grid_A2_1  = 2;
-% min_A2_2  = -0.029162;   max_A2_2  = 0.0413568;   grid_A2_2  = 2;
-% min_A2_3  = 0.0585186;   max_A2_3  = 0.0793742;   grid_A2_3  = 2;
-% min_A2_5  = -0.101409;   max_A2_5  = -0.033333;   grid_A2_5  = 2;
-% min_A2_6  = 0.0606236;   max_A2_6  = 0.0810010;   grid_A2_6  = 2;
-% min_A2_8  = -0.106398;   max_A2_8  = -0.038067;   grid_A2_8  = 2;
-% min_A2_9  = 0.0627056;   max_A2_9  = 0.0823847;   grid_A2_9  = 2;
-% min_A2_11 = -0.111045;   max_A2_11 = -0.047084;   grid_A2_11 = 2;
-% min_A2_12 = 0.0020951;   max_A2_12 = 0.0060559;   grid_A2_12 = 2;
-
-% Variables we want to vary (set 2)
-A2_1     = A(2, 1);  A2_2     = A(2, 2);
-A2_3     = A(2, 3);
-A2_5     = A(2, 5);  A2_6     = A(2, 6);
-A2_8     = A(2, 8);  A2_9     = A(2, 9);
-A2_11    = A(2,11);
-A15_2    = A(2,12);
-% Add variations (set 2)
-min_A2_1  = -2.206e-5;   max_A2_1  = 4.0408e-5;   grid_A2_1  = 2;
-min_A2_2  = -0.048067;   max_A2_2  = 0.0742263;   grid_A2_2  = 2;
-min_A2_3  = 0.0585186;   max_A2_3  = 0.0869730;   grid_A2_3  = 2;
-min_A2_5  = -0.101409;   max_A2_5  = 0.0073289;   grid_A2_5  = 2;
-min_A2_6  = 0.0606236;   max_A2_6  = 0.0900068;   grid_A2_6  = 2;
-min_A2_8  = -0.106398;   max_A2_8  = -0.004490;   grid_A2_8  = 2;
-min_A2_9  = 0.0627056;   max_A2_9  = 0.0930115;   grid_A2_9  = 2;
-min_A2_11 = -0.111045;   max_A2_11 = 0.0015414;   grid_A2_11 = 2;
-min_A15_2 = -4.8925e8;   max_A15_2 = 1.97790e8;   grid_A15_2 = 2;
+% Variables we want to vary (Add variations)
+min_A2_1  = -5.79853e-06;   max_A2_1  = 4.04052e-05 ;   grid_A2_1  = 2;
+min_A2_2  = -0.0452225  ;   max_A2_2  = 0.0730376   ;   grid_A2_2  = 2;
+min_A2_3  = 0.0695932   ;   max_A2_3  = 0.1002140   ;   grid_A2_3  = 2;
+min_A2_5  = -0.1209990  ;   max_A2_5  = -0.0197135  ;   grid_A2_5  = 2;
+min_A2_6  = 0.0716087   ;   max_A2_6  = 0.1031170   ;   grid_A2_6  = 2;
+min_A2_8  = -0.1264400  ;   max_A2_8  = -0.0253774  ;   grid_A2_8  = 2;
+min_A2_9  = 0.0735982   ;   max_A2_9  = 0.1059810   ;   grid_A2_9  = 2;
+min_A2_11 = -0.1326090  ;   max_A2_11 = -0.03165510 ;   grid_A2_11 = 2;
+min_A2_12 = 0.000950601 ;   max_A2_12 = 0.00663399  ;   grid_A2_12 = 2;
 
 
 % --- Gridding
@@ -207,10 +154,7 @@ A2_6_g  = linspace( (min_A2_6)    ,   (max_A2_6)  ,   grid_A2_6 );
 A2_8_g  = linspace( (min_A2_8)    ,   (max_A2_8)  ,   grid_A2_8 );
 A2_9_g  = linspace( (min_A2_9)    ,   (max_A2_9)  ,   grid_A2_9 );
 A2_11_g = linspace( (min_A2_11)   ,   (max_A2_11) ,   grid_A2_11);
-A15_2_g = linspace( (min_A15_2)   ,   (max_A15_2) ,   grid_A15_2);
-% A2_1_g = logspace( log10(min_A2_1)    ,   log10(max_A2_1)  ,   grid_A2_1 );
-% A2_2_g = logspace( log10(min_A2_2)    ,   log10(max_A2_2)  ,   grid_A2_2 );
-% A2_3_g = logspace( log10(min_A2_3)    ,   log10(max_A2_3)  ,   grid_A2_3 );
+A2_12_g = linspace( (min_A2_12)   ,   (max_A2_12) ,   grid_A2_12);
 
 % --- Plant generation
 %   *** Note on transfer function generation:
@@ -221,8 +165,9 @@ A15_2_g = linspace( (min_A15_2)   ,   (max_A15_2) ,   grid_A15_2);
 %       i.e. => P( 1, 1, 300 ) == SISO with 300 TFs
 %
 n_Plants = grid_A2_1*grid_A2_2*grid_A2_3*grid_A2_5*grid_A2_6*...
-           grid_A2_8*grid_A2_9*grid_A2_11*grid_A15_2;   % Number of plants
-P = tf( zeros(1,1,n_Plants) );                      % Pre-allocate memory
+           grid_A2_8*grid_A2_9*grid_A2_11*grid_A2_12;   % Number of plants
+P11 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
+P12 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
 
 % [INFO] ...
 fprintf( 'Step 1:' );
@@ -253,8 +198,8 @@ for var1 = 1:grid_A2_1                               % Loop over w
                             for var8 = 1:grid_A2_11  % Loop over w
                                 A2_11 = A2_11_g( var8 );        % ....
 
-                                for var9 = 1:grid_A15_2  % Loop over w
-                                    A15_2 = A15_2_g( var9 );        % ....
+                                for var9 = 1:grid_A2_12  % Loop over w
+                                    A2_12 = A2_12_g( var9 );        % ....
 
                                     % --- Here we create the plant TF
                                     A_g = A;    B_g = B;
@@ -269,12 +214,12 @@ for var1 = 1:grid_A2_1                               % Loop over w
                                     A_g(2, 8) = A2_8;
                                     A_g(2, 9) = A2_9;
                                     A_g(2,11) = A2_11;
-                                    A_g(15,2) = A15_2;
+                                    A_g(2,12) = A2_12;
                                 
                                     % --- Generate grided TF from grided SS model
                                     sys_g = ss( A_g, B_g, C_g, D_g );
                                     TF_g = tf( sys_g );
-                                    P(:, :, NDX) = TF_g(1);         % Transfer Function
+                                    P11(:, :, NDX) = TF_g(1);       % Plant TF 1,1
                                     NDX = NDX + 1;                  % Incerement counter
                                 end
                             end
@@ -299,28 +244,35 @@ fprintf( '\tComputing nominal plant...' );
 %   Any one of the models above can be used as the nominal plant.
 %   We just happened to chose this one.
 %
-P0(1, 1, 1) = TF;                       % Nominal Transfer Function
+P0_11(1, 1, 1) = TF(1);                     % Nominal Transfer Function
 
 % --- Append to the end of the gridded plants
-P( 1, 1, end+1 ) = P0;
+P11( 1, 1, end+1 ) = P0_11;
 
 % --- Cleanup plants transfer function by removing values below 1e-16
-for ii = 1:length( P )
-    [n, d] = tfdata( minreal(P( 1, 1, ii ), 0.01) );
+for ii = 1:length( P11 )
+    [n, d] = tfdata( minreal(P11( 1, 1, ii ), 0.01) );
     n = cellfun(@(x) {x.*(abs(x) > 1e-16)}, n);
     d = cellfun(@(x) {x.*(abs(x) > 1e-16)}, d);
-    P( 1, 1, ii ) = tf(n, d);
+    P11( 1, 1, ii ) = tf(n, d);
 end
 
+
 % --- Define nominal plant case
-nompt = length( P );
-P0 = P( 1, 1, nompt );
+nompt = length( P11 );
+P0_11 = P11( 1, 1, nompt );
+
+% --- Pick one (for now)
+P0 = P0_11;
+P = P11;
+% P0 = P0_12;
+% P = P12;
 
 % [INFO] ...
 fprintf( ACK );
 
 % --- Plot bode diagram
-w = logspace( log10(1e-4), log10(1e2), 1024 );
+w = logspace( log10(5e-3), log10(1e1), 2048 );
 if( PLOT )
     figure( CNTR ); CNTR = CNTR + 1;
     bode( P0, w ); grid on;
@@ -343,25 +295,26 @@ fprintf( 'Step 3:' );
 fprintf( '\tPlotting QFT templates...' );
 
 % --- Working frequencies
-% w = linspace( 5e-3, 1e1, 8 );
-% w = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
-w = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+% w = [ 1e-3 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+w = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 
 % --- Plot QFT templates
-plottmpl( w, P, nompt );
+if( PLOT )
+    plottmpl( w, P, nompt );
+    title( 'Plant Templates' )
 
-% --- Change legend position
-hLegend = findobj(gcf, 'Type', 'Legend');   % Get legend property
-set( hLegend, 'location', 'southeast' );    % Access and change location
-
-% --- Change plot limits
-% xmin = -315; xmax = -135; dx = 45;
-% xlim( [xmin xmax] );
-% xticks( xmin:dx:xmax )
-title( 'Plant Templates' )
-
-% --- Beautify plot
-make_nice_plot();
+    % --- Change legend position
+    hLegend = findobj(gcf, 'Type', 'Legend');   % Get legend property
+    set( hLegend, 'location', 'southeast' );    % Access and change location
+    
+    % --- Change plot limits
+%     xmin = -405; xmax = -135; dx = 45;
+%     xlim( [xmin xmax] );
+%     xticks( xmin:dx:xmax )
+    
+    % --- Beautify plot
+    make_nice_plot();
+end
 
 % [INFO] ...
 fprintf( ACK );
@@ -386,9 +339,11 @@ fprintf( '\tDefining stability specifications\n' );
 % ----      Type 1: Stability specification     ----
 % --------------------------------------------------
 % Frequencies of interest
-% omega_1 = [ 1e-4 1e-3 1e-2 1e-1 1e0 1e1 1e2 ];
-omega_1 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+% omega_1 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+omega_1 = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+
 % Restriction
+% W_s         = 1.66;
 W_s         = 1.46;
 % W_s         = 1.08;
 del_1       = W_s;
@@ -406,6 +361,7 @@ fprintf( ACK );
 fprintf( 'Step 5:' );
 fprintf( '\tDefining performance specifications...' );
 
+%%
 % -----------------------------------------------------------------------
 % -- Type 3: Sensitivity or output disturbance rejection specification --
 % -----------------------------------------------------------------------
@@ -422,51 +378,52 @@ fprintf( '\tDefining performance specifications...' );
 %
 
 % Frequencies of interest
-% omega_3 = [ 1e-2 5e-2 1e-1 ];
-omega_3 = [ 5e-2 1e-1 ];
+% omega_3 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
+omega_3 = [ 5e-3 1e-2 5e-2 1e-1 ];
 
 % Restriction
-a_d     = 5e-2;
+a_d     = 5e-1;
 num     = [ 1/a_d   , 0 ];
 den     = [ 1/a_d   , 1 ];
-% num     = [ 0.025   , 0.2   , 0.018 ];
-% den     = [ 0.025   , 10    , 1     ];
 del_3   = tf( num, den );
 
 % --- Plot bounds
 if( PLOT )
     figure( CNTR ); CNTR = CNTR + 1;
-    bode( del_3, min(omega_3):0.01:max(omega_3) );
+    bode( del_3, min(omega_3):0.001:max(omega_3) );
+    title( "Sensitivity Specification" );
     make_nice_plot();
 end
 
-
+%%
 % --------------------------------------------------------------------
 % ---- Type 4: Disturbance rejection at plant input specification ----
 % --------------------------------------------------------------------
 %
 
 % Frequencies of interest
-% omega_4 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
-omega_4 = [ 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+% omega_4 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+omega_4 = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 
 % Restriction
-del_4   = 0.01;
-% a_U = 0.25; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
-% a_U = 0.50; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
-% num = [ conv([1/a_U 1], [0 1+eps_U]) ];
-% den = [ (1/wn)^2 (2*zeta/wn) 1 ];
+% del_4   = 0.5;
+% a_U = 0.01; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
+a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
+num = [ conv([1/a_U 1], [0 1+eps_U]) ];
+den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 % num     = [ 1/a_d   , 0 ];
 % den     = [ 1/a_d   , 1 ];
-% del_4   = tf( num, den );
+del_4   = tf( num, den );
 
 % --- Plot bounds
 if( PLOT )
     figure( CNTR ); CNTR = CNTR + 1;
-    bode( del_4, min(omega_4):0.01:max(omega_4) );
+    bode( del_4, min(omega_4):0.001:max(omega_4) );
+    title( "Disturbance Rejection at Plant Input Specification" );
     make_nice_plot();
 end
 
+%%
 % --------------------------------------------------
 % ---- Type 6: Reference tracking specification ----
 % --------------------------------------------------
@@ -492,19 +449,17 @@ end
 %
 
 % Frequencies of interest
-% omega_6 = [ 1e-2 5e-2 1e-1 1e0 ];
-omega_6 = [ 5e-2 1e-1 1e0 ];
+% omega_6 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
+omega_6 = [ 5e-3 1e-2 5e-2 1e-1 ];
 
 % Restriction
 % Upper bound
-% a_U = 0.25; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.01;
-a_U = 0.05; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.05;
+a_U = 1e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 del_6_hi = tf( num, den );
 % Lower bound
-% a_L = 0.50; eps_L = 0.01;
-a_L = 0.10; eps_L = 0.05;
+a_L = 2.5e-2; eps_L = 0.025;
 num = 1-eps_L;
 den = [ conv([1/a_L 1], [1/a_L 1]) ];
 del_6_lo = tf( num, den );
@@ -517,6 +472,7 @@ if( PLOT )
     figure( CNTR ); CNTR = CNTR + 1;
     step( del_6(1) );   hold on ;  grid on;
     step( del_6(2) );   hold off;
+    title( "Reference Tracking Specification" );
     make_nice_plot();
 end
 
@@ -596,6 +552,7 @@ end
 % [INFO] ...
 fprintf( ACK );
 
+%%
 % --------------------------------------------------------------------
 % ---- Type 4: Disturbance rejection at plant input specification ----
 % --------------------------------------------------------------------
@@ -622,6 +579,7 @@ end
 % [INFO] ...
 fprintf( ACK );
 
+%%
 % --------------------------------------------------
 % ---- Type 6: Reference tracking specification ----
 % --------------------------------------------------
@@ -688,14 +646,14 @@ fprintf( '\tSynthesize G(s)...' );
 src = './controllerDesigns/';
 
 % --- Controller, G(s)
-% G_file  = [ src 'G.shp' ];
-G_file  = [ src 'G_R2_R3_ReducedSpecs.shp' ];
+G_file  = [ src 'G_R3_embedded_GenTrq.shp' ];
+% G_file  = [ src 'G_R3_embedded_GenTrq_ver2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
 else
     syms s;
-    num = (-7.5) .* sym2poly( (s/0.1 + 1) );    % Numerator
-    den =           sym2poly( (s/8   + 1) );    % Denominator
+    num = (-83.33).*sym2poly( (s + 0.015) );    % Numerator
+    den =           sym2poly( (s - 0.005) );    % Denominator
     clear s;
     
     % Construct controller TF
@@ -724,13 +682,15 @@ fprintf( '\tSynthesize F(s)...' );
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-F_file  = [ src 'F_R2_R3_ReducedSpecs.fsh' ];
+F_file  = [ src 'F_R3_embedded_GenTrq.fsh' ];
+% F_file  = [ src 'F_R3_embedded_GenTrq_ver2.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
 else
+    % --- Slow response filter defined below
     syms s;
-    num = 1.05;                                     % Numerator
-    den = sym2poly( (s/0.225 + 1)*(s/2 + 1) );      % Denominator
+    num = 0.0075;                           % Numerator
+    den = sym2poly( (s + 0.0075) );         % Denominator
     clear s;
     
     % Construct controller TF
@@ -765,8 +725,27 @@ ind = (min(omega_4) <= wl) & (wl <= max(omega_4));
 chksiso( 3, wl(ind), del_4, P, [], G );
 % ylim( [-90 10] );
 
-disp(' ')
-disp('chksiso(7,wl,W3,P,R,G); %input disturbance rejection spec')
-ind = (min(omega_6) <= wl) & (wl <= max(omega_6));
-chksiso( 7, wl(ind), del_6, P, [], G, [], F );
-% ylim( [-0.1 1.3] );
+% disp(' ')
+% disp('chksiso(7,wl,W3,P,R,G); %input disturbance rejection spec')
+% ind = (min(omega_6) <= wl) & (wl <= max(omega_6));
+% chksiso( 7, wl(ind), del_6, P, [], G, [], F );
+% % ylim( [-0.1 1.3] );
+
+%% Quick impulse simulations
+% Some variables are manually generated, running this section as-is will
+% result in errors being raised
+
+figure();
+impulse( feedback(P0*G, 1) ); grid on; hold on;
+impulse( feedback(P0*GG, 1) ); 
+impulse( feedback(P0*GGG, 1) );
+title( "Impulse response" );
+make_nice_plot();
+
+figure();
+step( feedback(P0*G, 1) ); grid on; hold on;
+step( feedback(P0*GG, 1) );
+step( feedback(P0*GGG, 1) );
+title( "Step Response" );
+make_nice_plot();
+
