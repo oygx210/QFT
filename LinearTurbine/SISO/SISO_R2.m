@@ -402,7 +402,7 @@ end
 omega_4 = [ 1e-3 2.5e-3 5e-3 1e-2 2.5e-2 5e-2 1e-1 2.5e-1 5e-1 1e0 2.5e0 5e0 1e1 ];
 
 % Restriction
-a_U = 0.01; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
+a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 % num     = [ 1/a_d   , 0 ];
@@ -446,14 +446,16 @@ omega_6 = [ 1e-3 2.5e-3 5e-3 1e-2 2.5e-2 ];
 
 % --- Restrictions
 % Upper bound
-% a_U = 0.025; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
-a_U = 1e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+% a_U = 0.0250; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;    % Fast
+% a_U = 1.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;    % Medium
+a_U = 2.5e-3; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.005;    % Slow
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 del_6_hi = tf( num, den );
 % Lower bound
-% a_L = 0.050; eps_L = 0.025;
-a_L = 2.5e-2; eps_L = 0.025;
+% a_L = 0.0500; eps_L = 0.025;                                    % Fast
+% a_L = 2.5e-2; eps_L = 0.025;                                    % Medium
+a_L = 5.0e-3; eps_L = 0.005;                                    % Slow
 num = 1-eps_L;
 den = [ conv([1/a_L 1], [1/a_L 1]) ];
 del_6_lo = tf( num, den );
@@ -663,6 +665,7 @@ src = './controllerDesigns/';
 
 % --- Controller, G(s)
 % G_file  = [ src 'G_R2_fastResponse.shp' ];
+% G_file  = [ src 'G_R2_mediumResponse.shp' ];
 G_file  = [ src 'G_R2_slowResponse.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
@@ -700,6 +703,7 @@ fprintf( '\tSynthesize F(s)...' );
 src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
 % F_file  = [ src 'F_R2_fastResponse.fsh' ];
+% F_file  = [ src 'F_R2_mediumResponse.fsh' ];
 F_file  = [ src 'F_R2_slowResponse.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
