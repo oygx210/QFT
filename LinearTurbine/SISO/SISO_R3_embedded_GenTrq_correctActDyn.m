@@ -678,7 +678,7 @@ fprintf( '\tSynthesize G(s)...' );
 src = './controllerDesigns/';
 
 % --- Controller, G(s)
-G_file  = [ src 'G_R3_embedded_GenTrq.shp' ];
+G_file  = [ src 'G_R3_embedded_GenTrq_correctActDyn.shp' ];
 % G_file  = [ src 'G_R3_embedded_GenTrq_ver2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
@@ -714,7 +714,7 @@ fprintf( '\tSynthesize F(s)...' );
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-F_file  = [ src 'F_R3_embedded_GenTrq.fsh' ];
+F_file  = [ src 'F_R3_embedded_GenTrq_correctActDyn.fsh' ];
 % F_file  = [ src 'F_R3_embedded_GenTrq_ver2.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
@@ -769,15 +769,15 @@ chksiso( 3, wl(ind), del_4, P, [], G );
 
 figure();
 impulse( feedback(P0*G, 1) ); grid on; hold on;
-impulse( feedback(P0*GG, 1) ); 
-impulse( feedback(P0*GGG, 1) );
+% impulse( feedback(P0*GG, 1) ); 
+% impulse( feedback(P0*GGG, 1) );
 title( "Impulse response" );
 make_nice_plot();
 
 figure();
 step( feedback(P0*G, 1) ); grid on; hold on;
-step( feedback(P0*GG, 1) );
-step( feedback(P0*GGG, 1) );
+% step( feedback(P0*GG, 1) );
+% step( feedback(P0*GGG, 1) );
 title( "Step Response" );
 make_nice_plot();
 
