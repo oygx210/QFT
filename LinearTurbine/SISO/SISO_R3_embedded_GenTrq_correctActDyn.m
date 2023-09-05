@@ -9,6 +9,9 @@
 %   Aug. 20th, 2023
 %       - Initial script
 %
+%   Sep.  5th, 2023
+%       - Correct actuator dynamics
+%
 
 %% Setup environment
 clear all; close all; clc;
@@ -34,7 +37,7 @@ PLOT = true;                                %#ok<NASGU> If true, plot figures!
 
 % --- Enable/disable printing figures
 PRNT = true;                                %#ok<NASGU>
-% PRNT = false;                               % COMMENT OUT TO PRINT FIGURES
+PRNT = false;                               % COMMENT OUT TO PRINT FIGURES
 
 % --- [INFO] Strings
 ACK = 'COMPLETED\n\n';
@@ -119,13 +122,13 @@ P_manual = C*(s*I - A)^-1*B + D;
 min_A2_1  = -6.09235e-06;   max_A2_1  = 4.09794e-05 ;   grid_A2_1  = 2;
 min_A2_2  = -0.0446502  ;   max_A2_2  = 0.0248350   ;   grid_A2_2  = 2;
 min_A2_3  = 0.0638464   ;   max_A2_3  = 0.0844336   ;   grid_A2_3  = 2;
-min_A2_4  = -3.65255e-04;   max_A2_4  = -3.17614e-04;   grid_A2_4  = 2;
+min_A2_4  = -3.65255e-04;   max_A2_4  = -3.17614e-04;   grid_A2_4  = 1;     % Small change, can skip gridding
 min_A2_6  = -3.454650   ;   max_A2_6  = -1.951820   ;   grid_A2_6  = 2;
 min_A2_7  = 0.06515760  ;   max_A2_7  = 0.0861676   ;   grid_A2_7  = 2;
-min_A2_8  = -3.65258e-04;   max_A2_8  = -3.17617e-04;   grid_A2_8  = 2;
+min_A2_8  = -3.65258e-04;   max_A2_8  = -3.17617e-04;   grid_A2_8  = 1;     % Small change, can skip gridding
 min_A2_10 = -3.710480   ;   max_A2_10 = -2.16005    ;   grid_A2_10 = 2;
 min_A2_11 = 0.06633160  ;   max_A2_11 = 0.08772030  ;   grid_A2_11 = 2;
-min_A2_12 = -3.65265e-04;   max_A2_12 = -3.176180-04;   grid_A2_12 = 2;
+min_A2_12 = -3.65265e-04;   max_A2_12 = -3.176180-04;   grid_A2_12 = 1;     % Small change, can skip gridding
 min_A2_14 = -3.872610   ;   max_A2_14 = -2.443750   ;   grid_A2_14 = 2;
 min_A2_15 = 0.003668010 ;   max_A2_15 = 0.006350780 ;   grid_A2_15 = 2;
 
@@ -165,16 +168,16 @@ P12 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
 % [INFO] ...
 fprintf( 'Step 1:' );
 fprintf( '\tComputing QFT templates using %3i plants...', n_Plants );
-
+tic;
 NDX = 1;                                            % Plant counter
-for var1 = 1:grid_A2_1                              % Loop over w
-    A2_1 = A2_1_g( var1 );                          % ....
+for var1 = 1:grid_A2_1          % Loop over w
+    A2_1 = A2_1_g( var1 );      % ....
     
-    for var2 = 1:grid_A2_2                          % Loop over w
-        A2_2 = A2_2_g( var2 );                      % ....
+    for var2 = 1:grid_A2_2          % Loop over w
+        A2_2 = A2_2_g( var2 );      % ....
         
-        for var3 = 1:grid_A2_3                      % Loop over w
-            A2_3 = A2_3_g( var3 );                  % ....
+        for var3 = 1:grid_A2_3          % Loop over w
+            A2_3 = A2_3_g( var3 );      % ....
             
             for var4 = 1:grid_A2_4          % Loop over w
                 A2_4 = A2_4_g( var4 );      % ....
@@ -241,7 +244,7 @@ for var1 = 1:grid_A2_1                              % Loop over w
         end
     end
 end 
-
+toc;
 % [INFO] ...
 fprintf( ACK );
 
@@ -263,8 +266,8 @@ P11( 1, 1, end+1 ) = P0_11;
 % --- Cleanup plants transfer function by removing values below 1e-16
 for ii = 1:length( P11 )
     [n, d] = tfdata( minreal(P11( 1, 1, ii ), 0.01) );
-    n = cellfun(@(x) {x.*(abs(x) > 1e-16)}, n);
-    d = cellfun(@(x) {x.*(abs(x) > 1e-16)}, d);
+    n = cellfun(@(x) {x.*(abs(x) > 1e-12)}, n);
+    d = cellfun(@(x) {x.*(abs(x) > 1e-12)}, d);
     P11( 1, 1, ii ) = tf(n, d);
 end
 
@@ -327,6 +330,12 @@ if( PLOT )
     
     % --- Beautify plot
     make_nice_plot();
+    dst  = fullfile( './figs/', mfilename );
+    name = fullfile( dst, 'template' );
+    if( PRNT )                                      % If flag is set
+        if( ~isfolder( dst ) ); mkdir( dst ); end   % Check if dir exists
+        print( gcf, '-dpng', name, '-r600'	)	    %   Print .png  file
+    end
 end
 
 % [INFO] ...
