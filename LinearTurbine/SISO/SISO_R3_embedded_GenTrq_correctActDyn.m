@@ -62,7 +62,7 @@ addpath( genpath(src) );
 %% Read A, B, C, D matrices from linearized model
 data_dir    = './data/';
 % name_mdl    = 'SS_linearizedTurbine_MIMO_R3.mat';
-name_mdl    = 'SS_linearizedTurbine_SISO_R3_embedded_GenTrq.mat';
+name_mdl    = 'SS_linearizedTurbine_SISO_R3_embedded_GenTrq_correctActDyn.mat';
 stateSpace  = load( [data_dir name_mdl ] );
 
 % --- Get number of states
@@ -80,27 +80,12 @@ B = B_full( 1:nStatesKeep   , 1:end         );
 C = C_full( 1:end           , 1:nStatesKeep );
 D = D_full( 1:height(C)     , 1:end         );
 
-% ======================== __START__: MODIFICATION ========================
-% This modification is because I exported the file with the wrong actuator
-% cut-off frequency. Fortunately, it does NOT affect the uncertainties in
-% the model.
-A( 5,  5) = -0.1745;
-A( 8,  8) = -0.1745;
-A(11, 11) = -0.1745;
-
-B( 5,  1) =  0.1745;
-B( 8,  1) =  0.1745;
-B(11,  1) =  0.1745;
-
-% ======================== __ END __: MODIFICATION ========================
-
-
 % --- Generate state-space model
 % States and inputs names
 stateNames  = [ "phi"           , "omega"           , ...
-                "blade120_phi"  , "blade120_omega"  , "blade120_Mact" , ...
-                "blade0_phi"    , "blade0_omega"    , "blade0_Mact"   , ...
-                "blade240_phi"  , "blade240_omega"  , "blade240_Mact" , ...
+                "blade120_phi"  , "blade120_omega"  , "blade120_Mact1", "blade120_Mact2" , ...
+                "blade0_phi"    , "blade0_omega"    , "blade0_Mact1"  , "blade0_Mact1"   , ...
+                "blade240_phi"  , "blade240_omega"  , "blade240_Mact1", "blade240_Mact1" , ...
                 "V_{wind_x}"    , "V_{wind_y}"      , "V_{wind_z}"   ];
 inputNames  = [ "u_{CPC}" ];
 outputNames = [ "\omega_{rot}", 'V_{wind_x}' ];
@@ -131,15 +116,18 @@ P_manual = C*(s*I - A)^-1*B + D;
 %
 
 % Variables we want to vary (Add variations)
-min_A2_1  = -5.79853e-06;   max_A2_1  = 4.04052e-05 ;   grid_A2_1  = 2;
-min_A2_2  = -0.0452225  ;   max_A2_2  = 0.0730376   ;   grid_A2_2  = 2;
-min_A2_3  = 0.0695932   ;   max_A2_3  = 0.1002140   ;   grid_A2_3  = 2;
-min_A2_5  = -0.1209990  ;   max_A2_5  = -0.0197135  ;   grid_A2_5  = 2;
-min_A2_6  = 0.0716087   ;   max_A2_6  = 0.1031170   ;   grid_A2_6  = 2;
-min_A2_8  = -0.1264400  ;   max_A2_8  = -0.0253774  ;   grid_A2_8  = 2;
-min_A2_9  = 0.0735982   ;   max_A2_9  = 0.1059810   ;   grid_A2_9  = 2;
-min_A2_11 = -0.1326090  ;   max_A2_11 = -0.03165510 ;   grid_A2_11 = 2;
-min_A2_12 = 0.000950601 ;   max_A2_12 = 0.00663399  ;   grid_A2_12 = 2;
+min_A2_1  = -6.09235e-06;   max_A2_1  = 4.09794e-05 ;   grid_A2_1  = 2;
+min_A2_2  = -0.0446502  ;   max_A2_2  = 0.0248350   ;   grid_A2_2  = 2;
+min_A2_3  = 0.0638464   ;   max_A2_3  = 0.0844336   ;   grid_A2_3  = 2;
+min_A2_4  = -3.65255e-04;   max_A2_4  = -3.17614e-04;   grid_A2_4  = 2;
+min_A2_6  = -3.454650   ;   max_A2_6  = -1.951820   ;   grid_A2_6  = 2;
+min_A2_7  = 0.06515760  ;   max_A2_7  = 0.0861676   ;   grid_A2_7  = 2;
+min_A2_8  = -3.65258e-04;   max_A2_8  = -3.17617e-04;   grid_A2_8  = 2;
+min_A2_10 = -3.710480   ;   max_A2_10 = -2.16005    ;   grid_A2_10 = 2;
+min_A2_11 = 0.06633160  ;   max_A2_11 = 0.08772030  ;   grid_A2_11 = 2;
+min_A2_12 = -3.65265e-04;   max_A2_12 = -3.176180-04;   grid_A2_12 = 2;
+min_A2_14 = -3.872610   ;   max_A2_14 = -2.443750   ;   grid_A2_14 = 2;
+min_A2_15 = 0.003668010 ;   max_A2_15 = 0.006350780 ;   grid_A2_15 = 2;
 
 
 % --- Gridding
@@ -149,12 +137,15 @@ min_A2_12 = 0.000950601 ;   max_A2_12 = 0.00663399  ;   grid_A2_12 = 2;
 A2_1_g  = linspace( (min_A2_1)    ,   (max_A2_1)  ,   grid_A2_1 );
 A2_2_g  = linspace( (min_A2_2)    ,   (max_A2_2)  ,   grid_A2_2 );
 A2_3_g  = linspace( (min_A2_3)    ,   (max_A2_3)  ,   grid_A2_3 );
-A2_5_g  = linspace( (min_A2_5)    ,   (max_A2_5)  ,   grid_A2_5 );
+A2_4_g  = linspace( (min_A2_4)    ,   (max_A2_4)  ,   grid_A2_4 );
 A2_6_g  = linspace( (min_A2_6)    ,   (max_A2_6)  ,   grid_A2_6 );
+A2_7_g  = linspace( (min_A2_7)    ,   (max_A2_7)  ,   grid_A2_7 );
 A2_8_g  = linspace( (min_A2_8)    ,   (max_A2_8)  ,   grid_A2_8 );
-A2_9_g  = linspace( (min_A2_9)    ,   (max_A2_9)  ,   grid_A2_9 );
+A2_10_g = linspace( (min_A2_10)   ,   (max_A2_10) ,   grid_A2_10);
 A2_11_g = linspace( (min_A2_11)   ,   (max_A2_11) ,   grid_A2_11);
 A2_12_g = linspace( (min_A2_12)   ,   (max_A2_12) ,   grid_A2_12);
+A2_14_g = linspace( (min_A2_14)   ,   (max_A2_14) ,   grid_A2_14);
+A2_15_g = linspace( (min_A2_15)   ,   (max_A2_15) ,   grid_A2_15);
 
 % --- Plant generation
 %   *** Note on transfer function generation:
@@ -164,8 +155,10 @@ A2_12_g = linspace( (min_A2_12)   ,   (max_A2_12) ,   grid_A2_12);
 %
 %       i.e. => P( 1, 1, 300 ) == SISO with 300 TFs
 %
-n_Plants = grid_A2_1*grid_A2_2*grid_A2_3*grid_A2_5*grid_A2_6*...
-           grid_A2_8*grid_A2_9*grid_A2_11*grid_A2_12;   % Number of plants
+n_Plants = grid_A2_1*grid_A2_2*grid_A2_3*grid_A2_4* ...
+           grid_A2_6*grid_A2_7*grid_A2_8*           ...
+           grid_A2_10*grid_A2_11*grid_A2_12*        ...
+           grid_A2_14*grid_A2_15;                       % Number of plants
 P11 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
 P12 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
 
@@ -174,53 +167,71 @@ fprintf( 'Step 1:' );
 fprintf( '\tComputing QFT templates using %3i plants...', n_Plants );
 
 NDX = 1;                                            % Plant counter
-for var1 = 1:grid_A2_1                               % Loop over w
-    A2_1 = A2_1_g( var1 );                            % ....
+for var1 = 1:grid_A2_1                              % Loop over w
+    A2_1 = A2_1_g( var1 );                          % ....
     
-    for var2 = 1:grid_A2_2                           % Loop over w
-        A2_2 = A2_2_g( var2 );                        % ....
+    for var2 = 1:grid_A2_2                          % Loop over w
+        A2_2 = A2_2_g( var2 );                      % ....
         
-        for var3 = 1:grid_A2_3                       % Loop over w
-            A2_3 = A2_3_g( var3 );                    % ....
+        for var3 = 1:grid_A2_3                      % Loop over w
+            A2_3 = A2_3_g( var3 );                  % ....
             
-            for var4 = 1:grid_A2_5                   % Loop over w
-                A2_5 = A2_5_g( var4 );                % ....
+            for var4 = 1:grid_A2_4          % Loop over w
+                A2_4 = A2_4_g( var4 );      % ....
                 
-                for var5 = 1:grid_A2_6               % Loop over w
-                    A2_6 = A2_6_g( var5 );            % ....
+                for var5 = 1:grid_A2_6          % Loop over w
+                    A2_6 = A2_6_g( var5 );      % ....
                     
-                    for var6 = 1:grid_A2_8           % Loop over w
-                        A2_8 = A2_8_g( var6 );        % ....
+                    for var6 = 1:grid_A2_7          % Loop over w
+                        A2_7 = A2_7_g( var6 );      % ....
 
-                        for var7 = 1:grid_A2_9       % Loop over w
-                            A2_9 = A2_9_g( var7 );    % ....
+                        for var7 = 1:grid_A2_8          % Loop over w
+                            A2_8 = A2_8_g( var7 );      % ....
 
-                            for var8 = 1:grid_A2_11  % Loop over w
-                                A2_11 = A2_11_g( var8 );        % ....
+                            for var8 = 1:grid_A2_10         % Loop over w
+                                A2_10 = A2_10_g( var8 );    % ....
 
-                                for var9 = 1:grid_A2_12  % Loop over w
-                                    A2_12 = A2_12_g( var9 );        % ....
+                                for var9 = 1:grid_A2_11         % Loop over w
+                                    A2_11 = A2_11_g( var9 );    % ....
 
-                                    % --- Here we create the plant TF
-                                    A_g = A;    B_g = B;
-                                    C_g = C;    D_g = D;
-                                
-                                    % Add uncertainty
-                                    A_g(2, 1) = A2_1;
-                                    A_g(2, 2) = A2_2;
-                                    A_g(2, 3) = A2_3;
-                                    A_g(2, 5) = A2_5;
-                                    A_g(2, 6) = A2_6;
-                                    A_g(2, 8) = A2_8;
-                                    A_g(2, 9) = A2_9;
-                                    A_g(2,11) = A2_11;
-                                    A_g(2,12) = A2_12;
-                                
-                                    % --- Generate grided TF from grided SS model
-                                    sys_g = ss( A_g, B_g, C_g, D_g );
-                                    TF_g = tf( sys_g );
-                                    P11(:, :, NDX) = TF_g(1);       % Plant TF 1,1
-                                    NDX = NDX + 1;                  % Incerement counter
+                                    for var10 = 1:grid_A2_12         % Loop over w
+                                        A2_12 = A2_12_g( var10 );    % ....
+
+                                        for var11 = 1:grid_A2_14         % Loop over w
+                                            A2_14 = A2_14_g( var11 );    % ....
+
+                                            for var12 = 1:grid_A2_15         % Loop over w
+                                                A2_15 = A2_15_g( var12 );    % ....
+
+                                                % --- Here we create the plant TF
+                                                A_g = A;    B_g = B;
+                                                C_g = C;    D_g = D;
+                                            
+                                                % Add uncertainty
+                                                A_g(2, 1) = A2_1;
+                                                A_g(2, 2) = A2_2;
+                                                A_g(2, 3) = A2_3;
+                                                A_g(2, 4) = A2_4;
+
+                                                A_g(2, 6) = A2_6;
+                                                A_g(2, 7) = A2_7;
+                                                A_g(2, 8) = A2_8;
+
+                                                A_g(2,10) = A2_10;
+                                                A_g(2,11) = A2_11;
+                                                A_g(2,12) = A2_12;
+
+                                                A_g(2,14) = A2_14;
+                                                A_g(2,15) = A2_15;
+                                            
+                                                % --- Generate grided TF from grided SS model
+                                                sys_g = ss( A_g, B_g, C_g, D_g );
+                                                TF_g = tf( sys_g );
+                                                P11(:, :, NDX) = TF_g(1);       % Plant TF 1,1
+                                                NDX = NDX + 1;                  % Incerement counter
+                                            end
+                                        end
+                                    end
                                 end
                             end
                         end
