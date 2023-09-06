@@ -65,7 +65,7 @@ addpath( genpath(src) );
 %% Read A, B, C, D matrices from linearized model
 data_dir    = './data/';
 % name_mdl    = 'SS_linearizedTurbine_MIMO_R3.mat';
-name_mdl    = 'SS_linearizedTurbine_SISO_R3_embedded_GenTrq_correctActDyn.mat';
+name_mdl    = 'SS_linearizedTurbine_SISO_R3_embedded_GenTrq_correctActDyn_ver2.mat';
 stateSpace  = load( [data_dir name_mdl ] );
 
 % --- Get number of states
@@ -123,13 +123,13 @@ min_A2_1  = -6.09235e-06;   max_A2_1  = 4.09794e-05 ;   grid_A2_1  = 2;
 min_A2_2  = -0.0446502  ;   max_A2_2  = 0.0248350   ;   grid_A2_2  = 2;
 min_A2_3  = 0.0638464   ;   max_A2_3  = 0.0844336   ;   grid_A2_3  = 2;
 min_A2_4  = -3.65255e-04;   max_A2_4  = -3.17614e-04;   grid_A2_4  = 1;     % Small change, can skip gridding
-min_A2_6  = -3.454650   ;   max_A2_6  = -1.951820   ;   grid_A2_6  = 2;
+min_A2_6  = -0.122745   ;   max_A2_6  = -0.0693489  ;   grid_A2_6  = 2;
 min_A2_7  = 0.06515760  ;   max_A2_7  = 0.0861676   ;   grid_A2_7  = 2;
 min_A2_8  = -3.65258e-04;   max_A2_8  = -3.17617e-04;   grid_A2_8  = 1;     % Small change, can skip gridding
-min_A2_10 = -3.710480   ;   max_A2_10 = -2.16005    ;   grid_A2_10 = 2;
+min_A2_10 = -0.131835   ;   max_A2_10 = -0.0767475  ;   grid_A2_10 = 2;
 min_A2_11 = 0.06633160  ;   max_A2_11 = 0.08772030  ;   grid_A2_11 = 2;
 min_A2_12 = -3.65265e-04;   max_A2_12 = -3.176180-04;   grid_A2_12 = 1;     % Small change, can skip gridding
-min_A2_14 = -3.872610   ;   max_A2_14 = -2.443750   ;   grid_A2_14 = 2;
+min_A2_14 = -0.137595   ;   max_A2_14 = -0.0868273  ;   grid_A2_14 = 2;
 min_A2_15 = 0.003668010 ;   max_A2_15 = 0.006350780 ;   grid_A2_15 = 2;
 
 
@@ -168,7 +168,7 @@ P12 = tf( zeros(1,1,n_Plants) );                        % Pre-allocate memory
 % [INFO] ...
 fprintf( 'Step 1:' );
 fprintf( '\tComputing QFT templates using %3i plants...', n_Plants );
-tic;
+
 NDX = 1;                                            % Plant counter
 for var1 = 1:grid_A2_1          % Loop over w
     A2_1 = A2_1_g( var1 );      % ....
@@ -244,7 +244,7 @@ for var1 = 1:grid_A2_1          % Loop over w
         end
     end
 end 
-toc;
+
 % [INFO] ...
 fprintf( ACK );
 
@@ -363,8 +363,8 @@ fprintf( '\tDefining stability specifications\n' );
 % Frequencies of interest
 % omega_1 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 % omega_1 = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
-% omega_1 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2.5e-1 5e-1 7.5e-1 1e0 2.5e0 5e0 7.5e0 1e1 ];
-omega_1 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+omega_1 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2.5e-1 5e-1 7.5e-1 1e0 2.5e0 5e0 7.5e0 1e1 ];
+% omega_1 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 
 % Restriction
 % W_s         = 1.66;
@@ -404,8 +404,8 @@ fprintf( '\tDefining performance specifications...' );
 % Frequencies of interest
 % omega_3 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
 % omega_3 = [ 5e-3 1e-2 5e-2 1e-1 ];
-% omega_3 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
-omega_3 = [ 1e-2 5e-2 1e-1 ];
+omega_3 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
+% omega_3 = [ 1e-2 5e-2 1e-1 ];
 
 % Restriction
 a_d     = 5e-1;
@@ -430,12 +430,12 @@ end
 % Frequencies of interest
 % omega_4 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 % omega_4 = [ 5e-3 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
-% omega_4 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2.5e-1 5e-1 7.5e-1 1e0 2.5e0 5e0 7.5e0 1e1 ];
-omega_4 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
+omega_4 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2.5e-1 5e-1 7.5e-1 1e0 2.5e0 5e0 7.5e0 1e1 ];
+% omega_4 = [ 1e-2 5e-2 1e-1 5e-1 1e0 5e0 1e1 ];
 
 % Restriction
 % del_4   = 0.5;
-% a_U = 0.01; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
+% a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
@@ -479,19 +479,21 @@ end
 % Frequencies of interest
 % omega_6 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
 % omega_6 = [ 5e-3 1e-2 5e-2 1e-1 ];
-% omega_6 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
-omega_6 = [ 1e-2 5e-2 1e-1 ];
+omega_6 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
+% omega_6 = [ 1e-2 5e-2 1e-1 ];
 
 % Restriction
 % Upper bound
-% a_U = 1e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
-a_U = 2.5e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+a_U = 2.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.0125;
+% a_U = 5.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+% a_U = 7.5e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 del_6_hi = tf( num, den );
 % Lower bound
-% a_L = 2.5e-2; eps_L = 0.025;
-a_L = 5.0e-2; eps_L = 0.025;
+a_L = 2.5e-2; eps_L = 0.0125;
+% a_L = 7.5e-2; eps_L = 0.025;
+% a_L = 1.0e-1; eps_L = 0.1;
 num = 1-eps_L;
 den = [ conv([1/a_L 1], [1/a_L 1]) ];
 del_6_lo = tf( num, den );
@@ -678,7 +680,7 @@ fprintf( '\tSynthesize G(s)...' );
 src = './controllerDesigns/';
 
 % --- Controller, G(s)
-G_file  = [ src 'G_R3_embedded_GenTrq_correctActDyn.shp' ];
+G_file  = [ src 'G_R3_embedded_GenTrq_correctActDyn_ver2.shp' ];
 % G_file  = [ src 'G_R3_embedded_GenTrq_ver2.shp' ];
 if( isfile(G_file) )
     G = getqft( G_file );
@@ -714,7 +716,7 @@ fprintf( '\tSynthesize F(s)...' );
 % --- Directory where QFT generated controllers are stored
 src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-F_file  = [ src 'F_R3_embedded_GenTrq_correctActDyn.fsh' ];
+F_file  = [ src 'F_R3_embedded_GenTrq_correctActDyn_ver2.fsh' ];
 % F_file  = [ src 'F_R3_embedded_GenTrq_ver2.fsh' ];
 if( isfile(F_file) )
     F = getqft( F_file );
@@ -769,14 +771,14 @@ chksiso( 3, wl(ind), del_4, P, [], G );
 
 figure();
 impulse( feedback(P0*G, 1) ); grid on; hold on;
-impulse( feedback(P0*GG, 1) ); 
+% impulse( feedback(P0*GG, 1) ); 
 % impulse( feedback(P0*GGG, 1) );
 title( "Impulse response" );
 make_nice_plot();
 
 figure();
 step( feedback(P0*G, 1) ); grid on; hold on;
-step( feedback(P0*GG, 1) );
+% step( feedback(P0*GG, 1) );
 % step( feedback(P0*GGG, 1) );
 title( "Step Response" );
 make_nice_plot();
