@@ -9,6 +9,9 @@
 %   Aug. 20th, 2023
 %       - Initial script
 %
+%   Sep. 19th, 2023
+%       - Better handling of path generation for controllers
+%
 
 %% Setup environment
 clear all; close all; clc;
@@ -58,6 +61,15 @@ end
 
 % Add QFT2 to path
 addpath( genpath(src) );
+
+% --- Controllers and pre-filter directories
+scriptDir       = mfilename( 'fullpath' );
+scriptPathParts = strsplit( scriptDir, filesep );
+ctrlSrc         = fullfile( scriptPathParts{1:end-1}, 'controllerDesigns' );
+
+% --- Directory where QFT generated controllers are stored
+dirG = fullfile( ctrlSrc, 'R3', 'G' );
+dirF = fullfile( ctrlSrc, 'R3', 'F' );
 
 %% Read A, B, C, D matrices from linearized model
 data_dir    = './data/';
@@ -654,12 +666,8 @@ fprintf( ACK );
 fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
-% --- Directory where QFT generated controllers are stored
-src = './controllerDesigns/';
-
 % --- Controller, G(s)
-G_file  = [ src 'G_R3_embedded_GenTrq.shp' ];
-% G_file  = [ src 'G_R3_embedded_GenTrq_ver2.shp' ];
+G_file  = fullfile( dirG, 'G_R3_embedded_GenTrq.shp' );
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -691,11 +699,8 @@ fprintf( ACK );
 fprintf( 'Step 10:' );
 fprintf( '\tSynthesize F(s)...' );
 
-% --- Directory where QFT generated controllers are stored
-src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-F_file  = [ src 'F_R3_embedded_GenTrq.fsh' ];
-% F_file  = [ src 'F_R3_embedded_GenTrq_ver2.fsh' ];
+F_file  = fullfile( dirF, 'F_R3_embedded_GenTrq.shp' );
 if( isfile(F_file) )
     F = getqft( F_file );
 else
@@ -743,21 +748,21 @@ chksiso( 3, wl(ind), del_4, P, [], G );
 % chksiso( 7, wl(ind), del_6, P, [], G, [], F );
 % % ylim( [-0.1 1.3] );
 
-%% Quick impulse simulations
+%% Impulse simulations
 % Some variables are manually generated, running this section as-is will
 % result in errors being raised
 
 figure();
 impulse( feedback(P0*G, 1) ); grid on; hold on;
-impulse( feedback(P0*GG, 1) ); 
-impulse( feedback(P0*GGG, 1) );
+% impulse( feedback(P0*GG, 1) ); 
+% impulse( feedback(P0*GGG, 1) );
 title( "Impulse response" );
 make_nice_plot();
 
 figure();
 step( feedback(P0*G, 1) ); grid on; hold on;
-step( feedback(P0*GG, 1) );
-step( feedback(P0*GGG, 1) );
+% step( feedback(P0*GG, 1) );
+% step( feedback(P0*GGG, 1) );
 title( "Step Response" );
 make_nice_plot();
 

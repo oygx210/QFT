@@ -2,6 +2,8 @@
 %   Design controller for regime 2 and regime 3 separately then combine
 %   using MIMO methodology
 %
+%   ACTUATOR DYNAMICS EMBEDDED WITHIN THE LINEARIZED MODEL
+%
 %   AUTHOR  : Mohammad Odeh
 %   DATE    : Aug. 20th, 2023
 %
@@ -9,8 +11,8 @@
 %   Aug. 20th, 2023
 %       - Initial script
 %
-%   Sep.  5th, 2023
-%       - Correct actuator dynamics
+%   Sep. 19th, 2023
+%       - Better handling of path generation for controllers
 %
 
 %% Setup environment
@@ -61,6 +63,15 @@ end
 
 % Add QFT2 to path
 addpath( genpath(src) );
+
+% --- Controllers and pre-filter directories
+scriptDir       = mfilename( 'fullpath' );
+scriptPathParts = strsplit( scriptDir, filesep );
+ctrlSrc         = fullfile( scriptPathParts{1:end-1}, 'controllerDesigns' );
+
+% --- Directory where QFT generated controllers are stored
+dirG = fullfile( ctrlSrc, 'R3', 'G' );
+dirF = fullfile( ctrlSrc, 'R3', 'F' );
 
 %% Read A, B, C, D matrices from linearized model
 data_dir    = './data/';
@@ -405,10 +416,12 @@ fprintf( '\tDefining performance specifications...' );
 % omega_3 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
 % omega_3 = [ 5e-3 1e-2 5e-2 1e-1 ];
 omega_3 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
+% omega_3 = [ 2.5e-2 5e-2 7.5e-2 1e-1 ];
 % omega_3 = [ 1e-2 5e-2 1e-1 ];
 
 % Restriction
-a_d     = 5e-1;
+% a_d     = 5e-1;
+a_d     = 2e-1;
 num     = [ 1/a_d   , 0 ];
 den     = [ 1/a_d   , 1 ];
 del_3   = tf( num, den );
@@ -436,7 +449,7 @@ omega_4 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2.5e-1 5e-1 7.5e-1 1e0 2.5e0 5e0 7.5e0 
 % Restriction
 % del_4   = 0.5;
 % a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
-a_U = 0.1; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
+a_U = 0.2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 % num     = [ 1/a_d   , 0 ];
@@ -479,20 +492,21 @@ end
 % Frequencies of interest
 % omega_6 = [ 1e-3 5e-3 1e-2 5e-2 1e-1 ];
 % omega_6 = [ 5e-3 1e-2 5e-2 1e-1 ];
-omega_6 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 ];
+omega_6 = [ 1e-2 2.5e-2 5e-2 7.5e-2 1e-1 2e-1 ];
+% omega_6 = [ 1e-2 2.5e-2 5e-2 ];
 % omega_6 = [ 1e-2 5e-2 1e-1 ];
 
 % Restriction
 % Upper bound
-a_U = 2.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.0125;
-% a_U = 5.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.025;
+% a_U = 2.0e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.0125;
+a_U = 1.0e-1; zeta = 0.80; wn = 1.25*a_U/zeta; eps_U = 0.0125;
 % a_U = 7.5e-2; zeta = 0.8; wn = 1.25*a_U/zeta; eps_U = 0.00;
 num = [ conv([1/a_U 1], [0 1+eps_U]) ];
 den = [ (1/wn)^2 (2*zeta/wn) 1 ];
 del_6_hi = tf( num, den );
 % Lower bound
-a_L = 2.5e-2; eps_L = 0.0125;
-% a_L = 7.5e-2; eps_L = 0.025;
+% a_L = 2.5e-2; eps_L = 0.0125;
+a_L = 2e-1; eps_L = 0.0125;
 % a_L = 1.0e-1; eps_L = 0.1;
 num = 1-eps_L;
 den = [ conv([1/a_L 1], [1/a_L 1]) ];
@@ -676,12 +690,8 @@ fprintf( ACK );
 fprintf( 'Step 9:' );
 fprintf( '\tSynthesize G(s)...' );
 
-% --- Directory where QFT generated controllers are stored
-src = './controllerDesigns/';
-
 % --- Controller, G(s)
-G_file  = [ src 'G_R3_embedded_GenTrq_correctActDyn_ver2.shp' ];
-% G_file  = [ src 'G_R3_embedded_GenTrq_ver2.shp' ];
+G_file  = fullfile( dirG, 'G_R3_embedded_GenTrq_embeddedActDyn.shp' );
 if( isfile(G_file) )
     G = getqft( G_file );
 else
@@ -713,11 +723,8 @@ fprintf( ACK );
 fprintf( 'Step 10:' );
 fprintf( '\tSynthesize F(s)...' );
 
-% --- Directory where QFT generated controllers are stored
-src = './controllerDesigns/';
 % --- Pre-filter file, F(s)
-F_file  = [ src 'F_R3_embedded_GenTrq_correctActDyn_ver2.fsh' ];
-% F_file  = [ src 'F_R3_embedded_GenTrq_ver2.fsh' ];
+F_file  = fullfile( dirF, 'F_R3_embedded_GenTrq_embeddedActDyn.shp' );
 if( isfile(F_file) )
     F = getqft( F_file );
 else
@@ -765,7 +772,7 @@ chksiso( 3, wl(ind), del_4, P, [], G );
 % chksiso( 7, wl(ind), del_6, P, [], G, [], F );
 % % ylim( [-0.1 1.3] );
 
-%% Quick impulse simulations
+%% Impulse simulations
 % Some variables are manually generated, running this section as-is will
 % result in errors being raised
 
